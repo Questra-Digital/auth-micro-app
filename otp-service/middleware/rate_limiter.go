@@ -6,6 +6,7 @@ import (
 	redisStore "github.com/ulule/limiter/v3/drivers/store/redis"
 	"otp-service/redis"
 	"otp-service/config"
+	"otp-service/utils"
 	"net/http"
 )
 
@@ -41,19 +42,29 @@ func InitRateLimiter() error {
 func RateLimitMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
+		logger := utils.NewLogger()
 
 		// Get rate limiting context for this IP
 		context, err := RedisLimiter.Get(c, ip)
 		if err != nil {
+			// Log rate limiter error
+			logger.LogRateLimit(c, c.Request.URL.Path, c.Request.Method, "IP_BASED", 0, 0, "1m", false)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Rate limiter error"})
 			return
 		}
 
 		// Check if limit is exceeded
 		if context.Reached {
+			// Log blocked rate limit event
+			logger.LogRateLimit(c, c.Request.URL.Path, c.Request.Method, "IP_BASED", 
+				int(context.Limit), int(context.Limit), "1m", true)
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
 			return
 		}
+
+		// Log allowed rate limit event
+		logger.LogRateLimit(c, c.Request.URL.Path, c.Request.Method, "IP_BASED", 
+			int(context.Remaining), int(context.Limit), "1m", false)
 
 		// Allow request
 		c.Next()
