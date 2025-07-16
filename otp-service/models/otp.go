@@ -8,5 +8,9 @@ type OTPSession struct {
 	CreatedAt time.Time `json:"created_at"`
 	Attempts  int       `json:"attempts"`
 	Resends   int       `json:"resends"`
+	Email string `json:"email"`
 }
 
+type OTPRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
