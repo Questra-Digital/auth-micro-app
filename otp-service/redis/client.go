@@ -6,13 +6,26 @@ import (
 	"encoding/json"
 	"github.com/redis/go-redis/v9"
 	"time"
+	"os"
+	"strconv"
+	"fmt"
 )
 
 var rdb *redis.Client
 
 func InitRedis() {
+	addr := fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", "localhost"), getEnv("REDIS_PORT", "6379"))
+	password := getEnv("REDIS_PASSWORD", "")
+	dbStr := getEnv("REDIS_DB", "0")
+	db, err := strconv.Atoi(dbStr)
+	if err != nil {
+		db = 0
+	}
+
 	rdb = redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr:     addr,
+		Password: password,
+		DB:       db,
 	})
 }
 
@@ -70,4 +83,11 @@ func IncrementReattempts(sessionID string) error {
 
 	// Save updated session with the same TTL
 	return StoreSession(session, ttl)
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
