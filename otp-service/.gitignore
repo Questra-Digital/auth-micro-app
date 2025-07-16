@@ -1,0 +1,7 @@
+.env
+
+# Binaries
+/main
+*.exe
+*.exe~
+*.dll
