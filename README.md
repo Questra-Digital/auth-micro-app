@@ -1,109 +1,86 @@
+# Auth Micro App
+
+A microservice-based authentication system with separate services for authentication, OTP, email delivery, and an API gateway. Each service is containerized and communicates over a shared network.
+
+## Architecture
+
+```
+[Client]
+   |
+   v
+[API Gateway] <----> [Redis] <----> [RabbitMQ]
+   |   |                |                |
+   |   |                |                |
+   |   +--> [OTP Service] <---+          |
+   |                         |           |
+   +----------------------> [Auth Service]
+   |                         |
+   +----------------------> [Email Service]
+
+[PostgreSQL] (shared audit/event DB)
+```
+
+- **api-gateway**: Handles all client requests, manages sessions, and proxies to other services.
+- **auth-service**: Manages user registration, login, and JWT issuance.
+- **otp-service**: Handles OTP generation/verification, stores OTP sessions in Redis, and logs events.
+- **email-service**: Sends OTP emails via SMTP, logs email events, and processes jobs from RabbitMQ.
+- **redis**: Shared cache/session store and rate limiter.
+- **rabbitmq**: Message queue for email jobs.
+- **postgres**: Used by all services for audit/event logging.
+
 ## Prerequisites
+- Docker & Docker Compose
+- (For local dev) Go 1.21+
+- SMTP credentials (for email-service)
 
-- **Go** (version 1.21+)
-- **Docker** & **Docker Compose** (for containerization)
-- A valid **SMTP account** (e.g., Gmail with App Password)
+## Setup (Docker Compose)
 
-## Project Structure
+1. Clone the repository.
+2. Copy and configure each service’s `.env` file as needed (see each service directory).
+3. Start all services:
+   ```bash
+   docker-compose up --build
+   ```
+4. Access services at:
+   - API Gateway: `http://localhost:8080`
+   - Auth Service: `http://localhost:8083`
+   - OTP Service: `http://localhost:8081`
+   - Email Service: `http://localhost:8082`
+   - RabbitMQ Dashboard: `http://localhost:15672` (user: admin, pass: adminPassword)
+   - Redis: `localhost:6379`
+   - PostgreSQL: `localhost:5432`
 
-```
-auth-microservice/
-├── Dockerfile
-├── docker-compose.yml
-├── .env            # Environment variables (not committed)
-├── go.mod
-├── go.sum
-├── main.go
-├── handlers/       # HTTP handlers for signup and verify
-│   ├── signup.go
-│   └── verify.go
-├── utils/          # Shared utilities (email sender, store)
-│   ├── sender.go
-│   └── memory.go
-└── README.md       # This file
-```
+## Example .env Structure
 
-
-### Configure Environment Variables
-
-Create a `.env` file in the project root with the following:
-
+Each service has its own `.env` file. Example for `auth-service`:
 ```env
-# SMTP settings
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_app_password
-
-# Service port
-PORT=8080
+JWT_SECRET="73853"
+DB_HOST=172.17.0.1
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=12345678
+AUDIT_DB_NAME=audit
+USER_DB_NAME=users
+DB_SSLMODE=disable
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=12345678
+REDIS_DB=0
+APP_ENV=development
+Audit_TTL_Days=30
+Rate_Limit_Per_Minute=10000
+API_GATEWAY_PORT=8083
 ```
 
-**Note**: For Gmail, enable 2-Step Verification and generate an App Password.
+## Troubleshooting
+- Ensure all `.env` files are present and correct.
+- Check service logs with `docker-compose logs <service>`.
+- For SMTP issues, use Gmail App Passwords and enable 2FA.
+- For DB/Redis issues, verify credentials and container health.
 
-### Install Go Dependencies
-
-```bash
-go mod tidy
-```
-
-## Running Locally
-
-1. **Load** `.env` and run the service:
-
-```bash
-go run main.go
-```
-
-2. The server will start on `http://localhost:8080`.
-
-
-### Using Docker Compose
-
-1. Ensure your `.env` file is in the project root.
-2. Start services:
-
-```bash
-docker-compose up --build
-```
-
-3. To stop:
-
+## Stopping Services
 ```bash
 docker-compose down
 ```
 
-## API Endpoints
-
-| Endpoint | Method | Payload | Description |
-|----------|--------|---------|-------------|
-| `/signup` | POST | `{ "email": "user@example.com" }` | Generate and send verification code |
-| `/verify` | POST | `{ "email": "user@example.com", "code": "123456" }` | Verify the code |
-
-## Testing the Service
-
-### Signup
-
-```bash
-curl -X POST http://localhost:8080/signup \
-  -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com"}'
-```
-
-**Expected Response:**
-```
-Verification code sent
-```
-
-### Verify
-
-```bash
-curl -X POST http://localhost:8080/verify \
-  -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "code": "123456"}'
-```
-
-**Expected Response:**
-```
-Email verification successful
-```
+---
