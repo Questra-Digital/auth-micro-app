@@ -7,5 +7,5 @@ const (
 	OTPTTL    = 5 * time.Minute
 	MaxAttempts = 3
 	MaxResends = 3
-	RateLimitPerMinute = "3-M"
+	RateLimitPerMinute = "10000-M"
 )
