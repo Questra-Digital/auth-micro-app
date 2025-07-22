@@ -2,31 +2,27 @@ package redis
 
 import (
 	"context"
-	"otp-service/models"
 	"encoding/json"
-	"github.com/redis/go-redis/v9"
-	"time"
-	"os"
-	"strconv"
 	"fmt"
+	"otp-service/config"
+	"otp-service/models"
+	"time"
+	"github.com/redis/go-redis/v9"
 )
 
 var rdb *redis.Client
 
 func InitRedis() {
-	addr := fmt.Sprintf("%s:%s", getEnv("REDIS_HOST", "localhost"), getEnv("REDIS_PORT", "6379"))
-	password := getEnv("REDIS_PASSWORD", "")
-	dbStr := getEnv("REDIS_DB", "0")
-	db, err := strconv.Atoi(dbStr)
-	if err != nil {
-		db = 0
-	}
-
+	addr := fmt.Sprintf("%s:%d", config.AppConfig.RedisHost, config.AppConfig.RedisPort)
+	password := config.AppConfig.RedisPassword
+	db := config.AppConfig.RedisDB
+	
 	rdb = redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: password,
 		DB:       db,
 	})
+	
 }
 
 func GetClient() *redis.Client {
@@ -85,9 +81,10 @@ func IncrementReattempts(sessionID string) error {
 	return StoreSession(session, ttl)
 }
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+
+func CloseRedis() error {
+	if rdb != nil {
+		return rdb.Close()
 	}
-	return defaultValue
+	return nil
 }
