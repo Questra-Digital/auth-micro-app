@@ -41,13 +41,12 @@ func CloseRedis() error {
 }
 
 // StoreSessionData stores all session data in a hash with optional expiry
-func StoreSessionData(sessionID, clientID, jwtToken, email string, verified bool) error {
+func StoreSessionData(sessionID, clientID, jwtToken, email string) error {
 	hashKey := fmt.Sprintf("session:%s", sessionID)
 	fields := map[string]interface{}{
 		"clientID": clientID,
 		"token": jwtToken,
 		"email": email,
-		"verified": fmt.Sprintf("%v", verified),
 	}
 	pipe := rdb.TxPipeline()
 	pipe.HSet(ctx, hashKey, fields)
@@ -102,32 +101,6 @@ func DeleteSession(sessionID string) error {
 	}
 	logger.Debug("Deleted sessionID %s", sessionID)
 	return nil
-}
-
-// MarkSessionVerified sets the verified field in the session hash
-func MarkSessionVerified(sessionID string) error {
-	hashKey := fmt.Sprintf("session:%s", sessionID)
-	pipe := rdb.TxPipeline()
-	pipe.HSet(ctx, hashKey, "verified", "true")
-	pipe.Expire(ctx, hashKey, sessionTTL)
-	_, err := pipe.Exec(ctx)
-	if err != nil {
-		logger.Error("Failed to mark sessionID %s as verified: %v", sessionID, err)
-		return err
-	}
-	logger.Debug("Marked sessionID %s as verified", sessionID)
-	return nil
-}
-
-// IsSessionVerified checks if a session has been verified
-func IsSessionVerified(sessionID string) (bool, error) {
-	hashKey := fmt.Sprintf("session:%s", sessionID)
-	val, err := rdb.HGet(ctx, hashKey, "verified").Result()
-	if err != nil {
-		logger.Error("Failed to check verified status for sessionID %s: %v", sessionID, err)
-		return false, err
-	}
-	return val == "true", nil
 }
 
 // DeleteSessionData removes all session-related data for a sessionID and from client set
