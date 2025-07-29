@@ -89,7 +89,6 @@ func UpdateSessionField(sessionID, field, value string) error {
 	return nil
 }
 
-// DeleteSession removes a sessionID from client set and deletes its hash
 func DeleteSession(sessionID string) error {
 	hashKey := fmt.Sprintf("session:%s", sessionID)
 	pipe := rdb.TxPipeline()
@@ -101,11 +100,6 @@ func DeleteSession(sessionID string) error {
 	}
 	logger.Debug("Deleted sessionID %s", sessionID)
 	return nil
-}
-
-// DeleteSessionData removes all session-related data for a sessionID and from client set
-func DeleteSessionData(sessionID string) error {
-	return DeleteSession(sessionID)
 }
 
 // StoreJWTForSession updates the token field in the session hash
