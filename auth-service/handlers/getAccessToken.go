@@ -5,6 +5,7 @@ import (
 	"auth-server/models"
 	"auth-server/utils"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -63,12 +64,6 @@ func GetAccessToken(c *gin.Context) {
 	action := models.TokenIssued
 	description := "Access token issued via passwordless authentication"
 
-	// Convert string scopes to ScopeType for audit logging
-	scopeTypes := make([]models.ScopeType, len(scopes))
-	for i, s := range scopes {
-		scopeTypes[i] = models.ScopeType(s)
-	}
-
 	logger.LogAuditRecord(models.AuditRecord{
 		UserID:      user.ID,
 		Action:      action,
@@ -76,15 +71,10 @@ func GetAccessToken(c *gin.Context) {
 		ClientIP:    c.ClientIP(),
 		UserAgent:   c.Request.UserAgent(),
 		Description: description,
-		Scopes:      models.ScopesToString(scopeTypes),
+		Scopes:      strings.Join(scopes, ","),
 	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": token,
-		"token_type":   "Bearer",
-		"expires_in":   3600,
-		"user_id":      user.ID,
-		"email":        user.Email,
-		"role":         user.Role,
 	})
 }
