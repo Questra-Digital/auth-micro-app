@@ -41,16 +41,21 @@ func CloseRedis() error {
 }
 
 // StoreSessionData stores all session data in a hash with optional expiry
-func StoreSessionData(sessionID, clientID, jwtToken, email string) error {
+func StoreSessionData(sessionID, clientID, jwtToken, email string, expiry ...time.Duration) error {
 	hashKey := fmt.Sprintf("session:%s", sessionID)
 	fields := map[string]interface{}{
 		"clientID": clientID,
 		"token": jwtToken,
 		"email": email,
 	}
+	// Use custom expiry if provided, otherwise fall back to sessionTTL
+	expireAfter := sessionTTL
+	if len(expiry) > 0 {
+		expireAfter = expiry[0]
+	}
 	pipe := rdb.TxPipeline()
 	pipe.HSet(ctx, hashKey, fields)
-	pipe.Expire(ctx, hashKey, sessionTTL)
+	pipe.Expire(ctx, hashKey, expireAfter)
 	_, err := pipe.Exec(ctx)
 	if err != nil {
 		logger.Error("Failed to store session data for sessionID %s: %v", sessionID, err)
