@@ -6,8 +6,7 @@ import (
 	"auth-server/utils"
 	"net/http"
 	"strings"
-	"time"
-
+	"auth-server/redis"
 	"github.com/gin-gonic/gin"
 )
 
@@ -53,16 +52,18 @@ func GetAccessToken(c *gin.Context) {
 		scopes = []string{"read", "write"}
 	}
 
-	token, err := utils.GenerateJWT(user.ID, user.Email, scopes, time.Hour*1)
+	token, err := utils.GenerateJWT(user.ID, user.Email, scopes)
 	if err != nil {
 		logger.Warn("Token generation failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
+	refreshTokenID := utils.GenerateRefreshTokenID()
+	redis.StoreRefreshToken(refreshTokenID, user.ID, user.Email, scopes)
 	// Log audit record
 	action := models.TokenIssued
-	description := "Access token issued via passwordless authentication"
+	description := "Access token and Refresh token issued."
 
 	logger.LogAuditRecord(models.AuditRecord{
 		UserID:      user.ID,
@@ -76,5 +77,6 @@ func GetAccessToken(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": token,
+		"refresh_token": refreshTokenID,
 	})
 }
