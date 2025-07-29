@@ -8,13 +8,13 @@ import (
 
 type Config struct {
 	// PostgreSQL
-	DBHost       string
-	DBPort       int
-	DBUser       string
-	DBPassword   string
-	DBSSLMode    string
-	AuditDBName  string
-	UserDBName   string
+	DBHost      string
+	DBPort      int
+	DBUser      string
+	DBPassword  string
+	DBSSLMode   string
+	AuditDBName string
+	UserDBName  string
 
 	// Redis
 	RedisHost     string
@@ -33,7 +33,7 @@ type Config struct {
 	AppPort int
 
 	// Token durations
-	AccessTokenDuration  int // in minutes
+	AccessTokenDuration  int // in hours
 	RefreshTokenDuration int // in days
 }
 
@@ -100,9 +100,9 @@ func InitConfig() {
 	}
 
 	// Parse token durations
-	AppConfig.AccessTokenDuration, err = parseEnvInt("ACCESS_TOKEN_DURATION_MINUTES", 15)
+	AppConfig.AccessTokenDuration, err = parseEnvInt("ACCESS_TOKEN_DURATION_HOURS", 1)
 	if err != nil {
-		log.Fatalf("Invalid ACCESS_TOKEN_DURATION_MINUTES: %v", err)
+		log.Fatalf("Invalid ACCESS_TOKEN_DURATION_HOURS: %v", err)
 	}
 
 	AppConfig.RefreshTokenDuration, err = parseEnvInt("REFRESH_TOKEN_DURATION_DAYS", 7)
