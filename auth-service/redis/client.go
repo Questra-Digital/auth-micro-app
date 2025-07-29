@@ -4,14 +4,10 @@ import (
 	"time"
 	"fmt"
 	"auth-server/config"
-	"context"
 	"github.com/redis/go-redis/v9"
-	"auth-server/utils"
 )
 
 var rdb *redis.Client
-var ctx = context.Background()
-var logger = utils.NewLogger()
 
 var sessionTTL time.Duration
 
