@@ -3,10 +3,11 @@ package handlers
 import (
 	"auth-server/config"
 	"auth-server/models"
+	"auth-server/redis"
 	"auth-server/utils"
 	"net/http"
 	"strings"
-	"auth-server/redis"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -76,7 +77,8 @@ func GetAccessToken(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, gin.H{
-		"access_token": token,
-		"refresh_token": refreshTokenID,
+		"access_token":                token,
+		"refresh_token":               refreshTokenID,
+		"refresh_token_duration_days": config.AppConfig.RefreshTokenDuration,
 	})
 }
