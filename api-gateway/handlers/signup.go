@@ -1,18 +1,18 @@
 package handlers
 
 import (
+	"api-gateway/config"
 	"api-gateway/models"
-	"api-gateway/utils"
 	"api-gateway/redis"
+	"api-gateway/utils"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"regexp"
 	"time"
-	"api-gateway/config"
-	"github.com/gin-gonic/gin"
 )
 
 func SignUpHandler(c *gin.Context) {
@@ -119,7 +119,7 @@ func SignUpHandler(c *gin.Context) {
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int((24 * time.Hour).Seconds()),
+		MaxAge:   int((15 * time.Minute).Seconds()),// this token will live only for 10 mins.
 	}
 	http.SetCookie(c.Writer, cookie)
 
