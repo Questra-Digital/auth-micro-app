@@ -1,12 +1,13 @@
 package redis
 
 import (
-	"time"
-	"fmt"
 	"api-gateway/config"
-	"context"
-	"github.com/redis/go-redis/v9"
 	"api-gateway/utils"
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var rdb *redis.Client
@@ -19,14 +20,14 @@ func InitRedis() {
 	addr := fmt.Sprintf("%s:%d", config.AppConfig.RedisHost, config.AppConfig.RedisPort)
 	password := config.AppConfig.RedisPassword
 	db := config.AppConfig.RedisDB
-	
+
 	rdb = redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: password,
 		DB:       db,
 	})
 
-	sessionTTL = time.Duration(config.AppConfig.RedisTTL) * time.Second
+	sessionTTL = time.Duration(config.AppConfig.SessionTTLHours) * time.Hour
 }
 
 func GetClient() *redis.Client {
@@ -41,12 +42,13 @@ func CloseRedis() error {
 }
 
 // StoreSessionData stores all session data in a hash with optional expiry
-func StoreSessionData(sessionID, clientID, jwtToken, email string, expiry ...time.Duration) error {
+func StoreSessionData(sessionID, clientID, jwtToken, email, refreshTokenID string, expiry ...time.Duration) error {
 	hashKey := fmt.Sprintf("session:%s", sessionID)
 	fields := map[string]interface{}{
-		"clientID": clientID,
-		"token": jwtToken,
-		"email": email,
+		"clientID":       clientID,
+		"token":          jwtToken,
+		"email":          email,
+		"refreshTokenID": refreshTokenID,
 	}
 	// Use custom expiry if provided, otherwise fall back to sessionTTL
 	expireAfter := sessionTTL
