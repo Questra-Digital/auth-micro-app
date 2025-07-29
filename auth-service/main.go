@@ -48,8 +48,7 @@ func main() {
 	r.Use(middleware.RateLimitMiddleware())
 
 	// Routes placeholder
-	r.POST("/registerUser", handlers.RegisterUser)
-	r.POST("/login", handlers.LoginHandler)
+	r.POST("/getAccessToken", handlers.GetAccessToken)
 
 	// Start server in a goroutine
 	go func() {
