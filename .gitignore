@@ -1,9 +1,5 @@
 # Go build artifacts
 **/bin/
-**/api-gateway
-**/auth-service
-**/email-service
-**/otp-service
 
 # Compiled binaries
 **/*.exe
