@@ -31,6 +31,16 @@ func RefreshAccessToken(c *gin.Context) {
 	data, err := redis.GetRefreshToken(tokenID)
 	if err != nil || data == nil {
 		logger.Warn("Invalid or expired refresh token: %v", err)
+		logger.LogAuditRecord(models.AuditRecord{
+			UserID:      "",
+			Action:      models.TokenIssued,
+			Status:      models.StatusFailure,
+			ClientIP:    c.ClientIP(),
+			UserAgent:   c.Request.UserAgent(),
+			Description: "Invalid or expired refresh token.",
+			Scopes:      "",
+		})
+		
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
 		return
 	}
