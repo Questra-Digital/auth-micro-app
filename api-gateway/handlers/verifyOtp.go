@@ -103,24 +103,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	}
 
 
-	// Step 4: Check if session is already verified
-	isVerified, err := redis.IsSessionVerified(sessionID)
-	if err != nil {
-		log.Error("Failed to check session verification status: %v", err)
-		// Continue with verification process
-	} else if isVerified {
-		log.Warn("Session already verified: %s", sessionID)
-
-		msg := "OTP already verified"
-		audit.StatusCode = http.StatusConflict
-		audit.Message = &msg
-		log.LogAuditEntry(audit)
-
-		c.JSON(http.StatusConflict, gin.H{"error": msg})
-		return
-	}
-
-	// Step 5: Parse OTP from request
+	// Step 4: Parse OTP from request
 	var otpReq otpVerifyRequest
 	if err := c.ShouldBindJSON(&otpReq); err != nil || otpReq.OTP == "" {
 		log.Warn("Invalid OTP payload")
@@ -134,7 +117,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		return
 	}
 
-	// Step 6: Send OTP verify request to OTP service
+	// Step 5: Send OTP verify request to OTP service
 	otpReq.Email = email
 	otpPayload, _ := json.Marshal(otpReq)
 	otpServiceURL := fmt.Sprintf("%s/otp/verify", config.AppConfig.OtpService)
@@ -170,7 +153,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	// Step 7: Log response status
+	// Step 6: Log response status
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
@@ -185,9 +168,9 @@ func VerifyOTPHandler(c *gin.Context) {
 		return
 	}
 
-	// Step 8: Mark session as verified
-	if err := redis.MarkSessionVerified(sessionID); err != nil {
-		log.Error("Failed to mark session as verified: %v", err)
+	// Step 7: Delete session after successful OTP verification
+	if err := redis.DeleteSession(sessionID); err != nil {
+		log.Error("Failed to delete session after OTP verification: %v", err)
 		// Continue anyway as OTP verification was successful
 	}
 
@@ -198,6 +181,8 @@ func VerifyOTPHandler(c *gin.Context) {
 	audit.Message = &msg
 	log.LogAuditEntry(audit)
 
-	// Step 9: Respond to client
+	//get access token from the AS.
+
+	// Step 8: Respond to client
 	c.Data(resp.StatusCode, "application/json", body)
 }

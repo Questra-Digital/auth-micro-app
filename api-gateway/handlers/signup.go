@@ -92,7 +92,7 @@ func SignUpHandler(c *gin.Context) {
 
 	// Store session data in Redis (clientID as a field in the session hash)
 	clientID := c.ClientIP()
-	if err := redis.StoreSessionData(sessionID, clientID, "", body.Email, false); err != nil {
+	if err := redis.StoreSessionData(sessionID, clientID, "", body.Email); err != nil {
 		log.Error("Failed to store session data in Redis: %v", err)
 
 		msg := "Internal server error"
