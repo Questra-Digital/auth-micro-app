@@ -62,8 +62,6 @@ func main() {
 
 	r.POST("/signup", handlers.SignUpHandler)
 	r.POST("/verify-otp", handlers.VerifyOTPHandler)
-	r.POST("/registerUser", handlers.RegisterUserHandler)
-	r.POST("/login", handlers.LoginHandler)
 
 	srv := &http.Server{
 		Addr:    ":"+strconv.Itoa(config.AppConfig.ApiGatewayPort),
