@@ -92,7 +92,7 @@ func SignUpHandler(c *gin.Context) {
 
 	// Store session data in Redis (clientID as a field in the session hash)
 	clientID := c.ClientIP()
-	if err := redis.StoreSessionData(sessionID, clientID, "", body.Email); err != nil {
+	if err := redis.StoreSessionData(sessionID, clientID, "", body.Email,15*time.Minute); err != nil {
 		log.Error("Failed to store session data in Redis: %v", err)
 
 		msg := "Internal server error"
@@ -119,7 +119,7 @@ func SignUpHandler(c *gin.Context) {
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int((15 * time.Minute).Seconds()),// this token will live only for 10 mins.
+		MaxAge:   int((15 * time.Minute).Seconds()),// this token will live only for 15 mins.
 	}
 	http.SetCookie(c.Writer, cookie)
 
