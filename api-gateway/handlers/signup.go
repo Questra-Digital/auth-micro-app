@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"api-gateway/api"
 	"api-gateway/models"
 	"api-gateway/redis"
 	"api-gateway/utils"
@@ -15,7 +16,7 @@ import (
 
 func SignUpHandler(c *gin.Context) {
 	log := utils.NewLogger()
-	apiClient := utils.NewAPIClient()
+	otpClient := api.NewOTPClient()
 
 	// Extract request context info
 	reqCtx := models.RequestContext{
@@ -89,8 +90,8 @@ func SignUpHandler(c *gin.Context) {
 	}
 	http.SetCookie(c.Writer, cookie)
 
-	// Request OTP using API client
-	resp, err := apiClient.RequestOTP(body.Email, sessionID)
+	// Request OTP using OTP client
+	resp, err := otpClient.RequestOTP(body.Email, sessionID)
 	if err != nil {
 		log.Error("Request to OTP service failed: %v", err)
 
