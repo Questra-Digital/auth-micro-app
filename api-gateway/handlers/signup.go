@@ -53,17 +53,6 @@ func SignUpHandler(c *gin.Context) {
 		log.Warn("Invalid email format: %s", body.Email)
 
 		msg := "Invalid email format"
-		auditEntry := log.NewAuditEntry(
-			models.EventGroupAuth,
-			models.ActionSignup,
-			nil,
-			nil,
-			reqCtx,
-			http.StatusBadRequest,
-			&msg,
-		)
-		log.LogAuditEntry(auditEntry)
-
 		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
