@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"api-gateway/api"
 	"api-gateway/models"
 	"api-gateway/redis"
 	"api-gateway/utils"
@@ -17,7 +18,8 @@ type otpVerifyRequest struct {
 
 func VerifyOTPHandler(c *gin.Context) {
 	log := utils.NewLogger()
-	apiClient := utils.NewAPIClient()
+	otpClient := api.NewOTPClient()
+	authClient := api.NewAuthClient()
 
 	// Extract request context info
 	reqCtx := models.RequestContext{
@@ -108,7 +110,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	}
 
 	// Step 5: Verify OTP using API client
-	resp, err := apiClient.VerifyOTP(otpReq.OTP, email, sessionID)
+	resp, err := otpClient.VerifyOTP(otpReq.OTP, email, sessionID)
 	if err != nil {
 		log.Error("OTP service request failed: %v", err)
 
@@ -122,7 +124,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	}
 
 	// Step 6: Check OTP verification response
-	respBody, _ := utils.ReadResponseBody(resp)
+	respBody, _ := api.ReadResponseBody(resp)
 	if resp.StatusCode != http.StatusOK {
 		log.Warn("OTP verification failed with status=%d", resp.StatusCode)
 
@@ -147,7 +149,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	c.SetCookie("sessionId", "", -1, "/", "", true, true)
 
 	// Step 9: Get access token using API client
-	authResp, err := apiClient.GetAccessToken(email)
+	authResp, err := authClient.GetAccessToken(email)
 	if err != nil {
 		log.Error("Auth service request failed: %v", err)
 
@@ -161,7 +163,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	}
 
 	// Step 10: Process auth response
-	authRespBody, _ := utils.ReadResponseBody(authResp)
+	authRespBody, _ := api.ReadResponseBody(authResp)
 	if authResp.StatusCode != http.StatusOK {
 		log.Error("Auth service responded with status %d: %s", authResp.StatusCode, string(authRespBody))
 
@@ -175,14 +177,14 @@ func VerifyOTPHandler(c *gin.Context) {
 	}
 
 	// Step 11: Parse auth response and extract tokens
-	authResponse, err := utils.ParseAuthResponse(authRespBody)
+	authResponse, err := api.ParseAuthResponse(authRespBody)
 	if err != nil {
 		log.Error("Failed to parse auth response: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid auth response format"})
 		return
 	}
 
-	accessToken, refreshToken, refreshTokenDuration, err := utils.ExtractTokensAndDuration(authResponse)
+	accessToken, refreshToken, refreshTokenDuration, err := api.ExtractTokensAndDuration(authResponse)
 	if err != nil {
 		log.Error("Missing tokens in auth response")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid auth response - missing tokens"})
