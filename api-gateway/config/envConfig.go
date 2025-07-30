@@ -50,10 +50,14 @@ func InitConfig() {
 		RedisHost:            getEnv("REDIS_HOST", "localhost"),
 		RedisPassword:        getEnv("REDIS_PASSWORD", ""),
 		AppEnv:               getEnv("APP_ENV", "development"),
-		JWTSecret:            getEnv("JWT_SECRET", "your-jwt-secret-key"),
+		JWTSecret:            getEnv("JWT_SECRET", ""),
 		OtpService:           getEnv("OTP_SERVICE_URL", "http://otp-service:8080"),
 		AuthorizationService: getEnv("AUTHORIZATION_SERVICE_URL", "http://auth-service:8083"),
 		ResourceServiceURL:   getEnv("RESOURCE_SERVICE_URL", "http://resource-service:8084"),
+	}
+
+	if AppConfig.JWTSecret == "" {
+		log.Fatal("JWT_SECRET must be set and non-empty")
 	}
 
 	// Parse DB_PORT
