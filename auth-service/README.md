@@ -1,12 +1,12 @@
 # Auth Service
 
-A microservice responsible for user registration, authentication, JWT issuance, and audit logging.
+A microservice responsible for user authentication, JWT issuance, token refresh, and audit logging.
 
 ## Features
-- User registration and login
-- JWT token generation
+- User authentication and JWT token generation
+- Access token refresh functionality
 - PostgreSQL for user and audit data
-- Redis for caching and rate limiting
+- Redis for refresh token storage
 - Audit logging for all authentication events
 - Configurable rate limiting
 
@@ -14,23 +14,23 @@ A microservice responsible for user registration, authentication, JWT issuance, 
 
 | Endpoint            | Method | Description                |
 |---------------------|--------|----------------------------|
-| `/registerUser`     | POST   | Register a new user        |
-| `/login`            | POST   | Authenticate and get token |
+| `/getAccessToken`   | POST   | Get access token for user  |
+| `/refreshToken`     | POST   | Refresh expired access token |
 
 ## Example Usage
 
-### Register User
+### Get Access Token
 ```bash
-curl -X POST http://localhost:8083/registerUser \
+curl -X POST http://localhost:8083/getAccessToken \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123"}'
+  -d '{"email":"user@example.com"}'
 ```
 
-### Login
+### Refresh Token
 ```bash
-curl -X POST http://localhost:8083/login \
+curl -X POST http://localhost:8083/refreshToken \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123"}'
+  -d '{"grant_type":"refresh_token","refresh_token":"token123","email":"user@example.com"}'
 ```
 
 ## Environment Variables
@@ -38,6 +38,8 @@ curl -X POST http://localhost:8083/login \
 | Variable                | Example Value         | Description                                 |
 |-------------------------|----------------------|---------------------------------------------|
 | JWT_SECRET              | "73853"             | Secret for signing JWT tokens               |
+| ACCESS_TOKEN_DURATION   | 1                   | Access token duration in hours              |
+| REFRESH_TOKEN_DURATION  | 7                   | Refresh token duration in days              |
 | DB_HOST                 | 172.17.0.1           | PostgreSQL host                             |
 | DB_PORT                 | 5432                 | PostgreSQL port                             |
 | DB_USER                 | postgres             | PostgreSQL user                             |
@@ -52,7 +54,7 @@ curl -X POST http://localhost:8083/login \
 | APP_ENV                 | development          | Application environment                     |
 | Audit_TTL_Days          | 30                   | Audit log retention in days                 |
 | Rate_Limit_Per_Minute   | 10000                | Requests per minute per IP                  |
-| API_GATEWAY_PORT        | 8083                 | Service port                                |
+| APP_PORT                | 8083                 | Service port                                |
 
 ## Running (Docker Compose)
 
