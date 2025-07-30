@@ -1,21 +1,31 @@
-FROM golang:1.21-alpine
+# syntax=docker/dockerfile:1
+
+# Stage 1: Build the application
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod and sum files
+# Cache dependencies
 COPY go.mod go.sum ./
-
-# Download all dependencies
 RUN go mod download
 
-# Copy the source code
+# Copy the rest of the source code
 COPY . .
 
-# Build the application
+# Build the Go binary
 RUN go build -o main .
 
-# Expose port
+# Stage 2: Create a minimal image with only the binary
+FROM alpine:latest
+
+# Set working directory
+WORKDIR /app
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /app/main .
+
+# Expose the application port
 EXPOSE 8084
 
 # Run the application
-CMD ["./main"] 
+CMD ["./main"]
