@@ -1,19 +1,20 @@
 package main
 
 import (
+	"api-gateway/config"
+	"api-gateway/handlers"
+	"api-gateway/middleware"
+	"api-gateway/redis"
+	"api-gateway/utils"
 	"context"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
-	"strconv"
-	"api-gateway/config"
-	"api-gateway/redis"
-	"api-gateway/utils"
-	"api-gateway/handlers"
-	"api-gateway/middleware"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -63,8 +64,15 @@ func main() {
 	r.POST("/signup", handlers.SignUpHandler)
 	r.POST("/verify-otp", handlers.VerifyOTPHandler)
 
+	// Resource routes
+	r.GET("/resources", handlers.ResourceHandler)
+	r.GET("/resources/:id", handlers.ResourceHandler)
+	r.POST("/resources", handlers.ResourceHandler)
+	r.PUT("/resources/:id", handlers.ResourceHandler)
+	r.DELETE("/resources/:id", handlers.ResourceHandler)
+
 	srv := &http.Server{
-		Addr:    ":"+strconv.Itoa(config.AppConfig.ApiGatewayPort),
+		Addr:    ":" + strconv.Itoa(config.AppConfig.ApiGatewayPort),
 		Handler: r,
 	}
 
@@ -77,7 +85,7 @@ func main() {
 		os.Exit(0)
 	}()
 
-	log.Println("Server running on :"+strconv.Itoa(config.AppConfig.ApiGatewayPort))
+	log.Println("Server running on :" + strconv.Itoa(config.AppConfig.ApiGatewayPort))
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("listen: %s\n", err)
 	}
