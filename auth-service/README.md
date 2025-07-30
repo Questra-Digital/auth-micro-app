@@ -37,7 +37,7 @@ curl -X POST http://localhost:8083/refreshToken \
 
 | Variable                | Example Value         | Description                                 |
 |-------------------------|----------------------|---------------------------------------------|
-| JWT_SECRET              | "73853"             | Secret for signing JWT tokens               |
+| JWT_SECRET              |   73853             | Secret for signing JWT tokens               |
 | ACCESS_TOKEN_DURATION   | 1                   | Access token duration in hours              |
 | REFRESH_TOKEN_DURATION  | 7                   | Refresh token duration in days              |
 | DB_HOST                 | 172.17.0.1           | PostgreSQL host                             |
