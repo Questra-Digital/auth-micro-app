@@ -83,6 +83,7 @@ curl -X DELETE http://localhost:8080/resources/550e8400-e29b-41d4-a716-446655440
 | REDIS_DB                    | 0                           | Redis DB index                              |
 | SESSION_TTL_HOURS           | 24                          | Session TTL in hours                        |
 | APP_ENV                     | development                 | Application environment                     |
+| JWT_SECRET                  | your-jwt-secret-key         | Secret for JWT token validation             |
 | Audit_TTL_Days              | 30                          | Audit log retention in days                 |
 | Rate_Limit_Per_Minute       | 10000                       | Requests per minute per IP                  |
 | OTP_SERVICE_URL             | http://otp-service:8081     | OTP service endpoint                        |

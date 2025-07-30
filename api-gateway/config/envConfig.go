@@ -26,6 +26,7 @@ type Config struct {
 	AppEnv       string
 	AuditTTLDays int
 	RateLimit    int
+	JWTSecret    string
 
 	//Deployed Services
 	OtpService           string
@@ -49,6 +50,7 @@ func InitConfig() {
 		RedisHost:            getEnv("REDIS_HOST", "localhost"),
 		RedisPassword:        getEnv("REDIS_PASSWORD", ""),
 		AppEnv:               getEnv("APP_ENV", "development"),
+		JWTSecret:            getEnv("JWT_SECRET", "your-jwt-secret-key"),
 		OtpService:           getEnv("OTP_SERVICE_URL", "http://otp-service:8080"),
 		AuthorizationService: getEnv("AUTHORIZATION_SERVICE_URL", "http://auth-service:8083"),
 		ResourceServiceURL:   getEnv("RESOURCE_SERVICE_URL", "http://resource-service:8084"),
