@@ -31,6 +31,7 @@ type Config struct {
 	OtpService           string
 	ApiGatewayPort       int
 	AuthorizationService string
+	ResourceServiceURL   string
 }
 
 var AppConfig Config
@@ -50,6 +51,7 @@ func InitConfig() {
 		AppEnv:               getEnv("APP_ENV", "development"),
 		OtpService:           getEnv("OTP_SERVICE_URL", "http://otp-service:8080"),
 		AuthorizationService: getEnv("AUTHORIZATION_SERVICE_URL", "http://auth-service:8083"),
+		ResourceServiceURL:   getEnv("RESOURCE_SERVICE_URL", "http://resource-service:8084"),
 	}
 
 	// Parse DB_PORT
