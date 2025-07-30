@@ -15,22 +15,22 @@ This document outlines all test scenarios for the auth-micro-app. All requests s
 ### Flow 1.1: Successful Signup → OTP Verification → Resource Access
 ```bash
 # 1. Signup
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -c cookies.txt
 
 # 2. Verify OTP (use OTP from email/logs)
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "otp": "123456"}' \
   -b cookies.txt
 
 # 3. Access Resources
-curl -X GET http://localhost:8083/resources \
+curl -X GET http://localhost:8080/resources \
   -b cookies.txt
 
-curl -X POST http://localhost:8083/resources \
+curl -X POST http://localhost:8080/resources \
   -H "Content-Type: application/json" \
   -d '{"name": "Test Resource", "description": "Test Description"}' \
   -b cookies.txt
@@ -43,31 +43,31 @@ curl -X POST http://localhost:8083/resources \
 ### Flow 2.1: OTP Verification with Retries
 ```bash
 # 1. Signup
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -c cookies.txt
 
 # 2. First attempt (wrong OTP)
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "otp": "000000"}' \
   -b cookies.txt
 
 # 3. Second attempt (wrong OTP)
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "otp": "000000"}' \
   -b cookies.txt
 
 # 4. Third attempt (correct OTP) - Should succeed
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "otp": "123456"}' \
   -b cookies.txt
 
 # 5. Fourth attempt - Should fail (max attempts exceeded)
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "otp": "000000"}' \
   -b cookies.txt
@@ -76,31 +76,31 @@ curl -X POST http://localhost:8083/verify-otp \
 ### Flow 2.2: OTP Resend Limits
 ```bash
 # 1. Signup
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -c cookies.txt
 
 # 2. First resend
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -b cookies.txt
 
 # 3. Second resend
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -b cookies.txt
 
 # 4. Third resend
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -b cookies.txt
 
 # 5. Fourth resend - Should fail (max resends exceeded)
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -b cookies.txt
@@ -116,27 +116,27 @@ curl -X POST http://localhost:8083/signup \
 # ... (use Flow 1.1 steps 1-2)
 
 # 2. GET all resources
-curl -X GET http://localhost:8083/resources \
+curl -X GET http://localhost:8080/resources \
   -b cookies.txt
 
 # 3. GET specific resource
-curl -X GET http://localhost:8083/resources/resource-1 \
+curl -X GET http://localhost:8080/resources/resource-1 \
   -b cookies.txt
 
 # 4. POST new resource
-curl -X POST http://localhost:8083/resources \
+curl -X POST http://localhost:8080/resources \
   -H "Content-Type: application/json" \
   -d '{"name": "New Resource", "description": "New Description"}' \
   -b cookies.txt
 
 # 5. PUT update resource
-curl -X PUT http://localhost:8083/resources/resource-1 \
+curl -X PUT http://localhost:8080/resources/resource-1 \
   -H "Content-Type: application/json" \
   -d '{"name": "Updated Resource", "description": "Updated Description"}' \
   -b cookies.txt
 
 # 6. DELETE resource
-curl -X DELETE http://localhost:8083/resources/resource-1 \
+curl -X DELETE http://localhost:8080/resources/resource-1 \
   -b cookies.txt
 ```
 
@@ -146,11 +146,11 @@ curl -X DELETE http://localhost:8083/resources/resource-1 \
 # This tests the scope-based authorization in the API Gateway
 
 # User with 'read' scope only
-curl -X GET http://localhost:8083/resources \
+curl -X GET http://localhost:8080/resources \
   -b cookies.txt
 
 # User with 'write' scope
-curl -X POST http://localhost:8083/resources \
+curl -X POST http://localhost:8080/resources \
   -H "Content-Type: application/json" \
   -d '{"name": "Test", "description": "Test"}' \
   -b cookies.txt
@@ -166,12 +166,12 @@ curl -X POST http://localhost:8083/resources \
 # ... (use Flow 1.1 steps 1-2)
 
 # 2. Access resource (should work normally)
-curl -X GET http://localhost:8083/resources \
+curl -X GET http://localhost:8080/resources \
   -b cookies.txt
 
 # 3. Wait for access token to expire (24 hours) or manipulate JWT
 # 4. Try to access resource again - should auto-refresh and succeed
-curl -X GET http://localhost:8083/resources \
+curl -X GET http://localhost:8080/resources \
   -b cookies.txt
 ```
 
@@ -180,7 +180,7 @@ curl -X GET http://localhost:8083/resources \
 # 1. Signup and verify OTP
 # 2. Wait for both access and refresh tokens to expire (7 days)
 # 3. Try to access resource - should return 401 and clear session
-curl -X GET http://localhost:8083/resources \
+curl -X GET http://localhost:8080/resources \
   -b cookies.txt
 ```
 
@@ -191,38 +191,38 @@ curl -X GET http://localhost:8083/resources \
 ### Flow 5.1: Invalid Inputs
 ```bash
 # Missing email
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{}' \
   -c cookies.txt
 
 # Invalid email format
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "invalid-email"}' \
   -c cookies.txt
 
 # Missing OTP
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -b cookies.txt
 
 # Missing session cookie
-curl -X GET http://localhost:8083/resources
+curl -X GET http://localhost:8080/resources
 ```
 
 ### Flow 5.2: Session/Token Errors
 ```bash
 # Expired session
 # Wait 15 minutes after signup, then try to verify OTP
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "otp": "123456"}' \
   -b cookies.txt
 
 # Invalid session ID
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "otp": "123456"}' \
   -H "Cookie: sessionId=invalid-session-id"
@@ -235,15 +235,15 @@ curl -X POST http://localhost:8083/verify-otp \
 ```bash
 # 1. Signup and verify OTP first
 # 2. Try to access non-existent resource
-curl -X GET http://localhost:8083/resources/non-existent-id \
+curl -X GET http://localhost:8080/resources/non-existent-id \
   -b cookies.txt
 
-curl -X PUT http://localhost:8083/resources/non-existent-id \
+curl -X PUT http://localhost:8080/resources/non-existent-id \
   -H "Content-Type: application/json" \
   -d '{"name": "Test", "description": "Test"}' \
   -b cookies.txt
 
-curl -X DELETE http://localhost:8083/resources/non-existent-id \
+curl -X DELETE http://localhost:8080/resources/non-existent-id \
   -b cookies.txt
 ```
 
@@ -255,7 +255,7 @@ curl -X DELETE http://localhost:8083/resources/non-existent-id \
 ```bash
 # Send multiple requests quickly to trigger rate limiting
 for i in {1..10}; do
-  curl -X POST http://localhost:8083/signup \
+  curl -X POST http://localhost:8080/signup \
     -H "Content-Type: application/json" \
     -d "{\"email\": \"test$i@example.com\"}" \
     -c cookies$i.txt
@@ -269,19 +269,19 @@ done
 ### Flow 7.1: Downstream Service Failures
 ```bash
 # 1. Stop OTP service and try signup
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -c cookies.txt
 
 # 2. Stop Auth service and try OTP verification
-curl -X POST http://localhost:8083/verify-otp \
+curl -X POST http://localhost:8080/verify-otp \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com", "otp": "123456"}' \
   -b cookies.txt
 
 # 3. Stop Resource service and try resource access
-curl -X GET http://localhost:8083/resources \
+curl -X GET http://localhost:8080/resources \
   -b cookies.txt
 ```
 
@@ -292,7 +292,7 @@ curl -X GET http://localhost:8083/resources \
 ### Flow 8.1: Session Hijacking Prevention
 ```bash
 # 1. Signup from IP A
-curl -X POST http://localhost:8083/signup \
+curl -X POST http://localhost:8080/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -c cookies.txt
@@ -346,7 +346,7 @@ curl -X POST http://localhost:8083/signup \
 
 ```bash
 # Quick happy path test
-curl -X POST http://localhost:8083/signup -H "Content-Type: application/json" -d '{"email": "test@example.com"}' -c cookies.txt
-curl -X POST http://localhost:8083/verify-otp -H "Content-Type: application/json" -d '{"email": "test@example.com", "otp": "123456"}' -b cookies.txt
-curl -X GET http://localhost:8083/resources -b cookies.txt
+curl -X POST http://localhost:8080/signup -H "Content-Type: application/json" -d '{"email": "test@example.com"}' -c cookies.txt
+curl -X POST http://localhost:8080/verify-otp -H "Content-Type: application/json" -d '{"email": "test@example.com", "otp": "123456"}' -b cookies.txt
+curl -X GET http://localhost:8080/resources -b cookies.txt
 ``` 
