@@ -29,9 +29,9 @@ func SignUpHandler(c *gin.Context) {
 		Email string `json:"email"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Email == "" {
-		log.Warn("Invalid or missing email in request body")
+		log.Warn("Missing email in request body")
 
-		msg := "Invalid or missing email"
+		msg := "Missing email"
 		auditEntry := log.NewAuditEntry(
 			models.EventGroupAuth,
 			models.ActionSignup,

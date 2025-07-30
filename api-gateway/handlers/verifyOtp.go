@@ -44,7 +44,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	var err error
 	sessionID, err = c.Cookie("sessionId")
 	if err != nil || sessionID == "" {
-		log.Warn("Missing or invalid sessionId cookie")
+		log.Warn("Missing sessionId cookie")
 
 		msg := "Missing sessionId cookie"
 		audit.SessionID = nil
@@ -88,12 +88,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	email := sessionData["email"]
 	if email == "" {
 		log.Warn("Missing email in session data")
-
 		msg := "Email not found in session"
-		audit.StatusCode = http.StatusInternalServerError
-		audit.Message = &msg
-		log.LogAuditEntry(audit)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 		return
 	}
