@@ -59,6 +59,18 @@ services:
     networks:
       - backend
 
+  resource-service:
+    build:
+      context: ./resource-service
+    env_file:
+      - ./resource-service/.env
+    depends_on:
+      - redis
+    ports:
+      - "8084:8084"
+    networks:
+      - backend
+
   otp-service:
     build:
       context: ./otp-service
