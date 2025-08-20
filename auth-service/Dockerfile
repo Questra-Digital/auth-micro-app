@@ -8,7 +8,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o email-service main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o auth-service main.go
 
 FROM alpine:3.19
 
@@ -16,9 +16,8 @@ RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/email-service .
-COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/auth-service .
 
-EXPOSE 8082
+EXPOSE 8083
 
-CMD ["./email-service"]
+CMD ["./auth-service"]
