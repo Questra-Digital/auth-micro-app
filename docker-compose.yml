@@ -1,7 +1,77 @@
 services:
-  auth-service:
-    build: .
+  redis:
+    image: redis:6-alpine
+    container_name: redis
+    command: ["redis-server", "--requirepass", "12345678"]
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  email-service:
+    build:
+      context: ./email-service
+    env_file:
+      - ./email-service/.env
+    depends_on:
+      - redis
+      - rabbitmq
+    ports:
+      - "8082:8082"
+    networks:
+      - backend
+  
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672" # RabbitMQ dashboard
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: adminPassword
+    networks:
+      - backend
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    env_file:
+      - ./api-gateway/.env
+    depends_on:
+      - redis
+      - rabbitmq
     ports:
       - "8080:8080"
+    networks:
+      - backend
+
+  auth-service:
+    build:
+      context: ./auth-service
     env_file:
-      - .env
+      - ./auth-service/.env
+    depends_on:
+      - redis
+      - rabbitmq
+    ports:
+      - "8083:8083"
+    networks:
+      - backend
+
+  otp-service:
+    build:
+      context: ./otp-service
+    env_file:
+      - ./otp-service/.env
+    depends_on:
+      - redis
+      - rabbitmq
+    ports:
+      - "8081:8081"
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge

@@ -1,12 +1,13 @@
 package utils
 
 import (
-	"time"
-	"github.com/golang-jwt/jwt/v5"
 	"auth-server/config"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte(config.AppConfig.JWTSecret) // You should load this from env or config
+var jwtSecret = []byte(config.AppConfig.JWTSecret)
 
 type CustomClaims struct {
 	UserID string   `json:"user_id"`
@@ -16,13 +17,13 @@ type CustomClaims struct {
 }
 
 // GenerateJWT generates a signed JWT access token
-func GenerateJWT(userID, email string, scopes []string, duration time.Duration) (string, error) {
+func GenerateJWT(userID, email string, scopes []string) (string, error) {
 	claims := CustomClaims{
 		UserID: userID,
 		Email:  email,
 		Scopes: scopes,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(config.AppConfig.AccessTokenDuration) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID,
 		},

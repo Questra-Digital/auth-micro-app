@@ -1,12 +1,13 @@
 package redis
 
 import (
-	"time"
-	"fmt"
 	"api-gateway/config"
-	"context"
-	"github.com/redis/go-redis/v9"
 	"api-gateway/utils"
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var rdb *redis.Client
@@ -19,14 +20,14 @@ func InitRedis() {
 	addr := fmt.Sprintf("%s:%d", config.AppConfig.RedisHost, config.AppConfig.RedisPort)
 	password := config.AppConfig.RedisPassword
 	db := config.AppConfig.RedisDB
-	
+
 	rdb = redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: password,
 		DB:       db,
 	})
 
-	sessionTTL = time.Duration(config.AppConfig.RedisTTL) * time.Second
+	sessionTTL = time.Duration(config.AppConfig.SessionTTLHours) * time.Hour
 }
 
 func GetClient() *redis.Client {
@@ -41,17 +42,22 @@ func CloseRedis() error {
 }
 
 // StoreSessionData stores all session data in a hash with optional expiry
-func StoreSessionData(sessionID, clientID, jwtToken, email string, verified bool) error {
+func StoreSessionData(sessionID, clientID, jwtToken, email, refreshTokenID string, expiry ...time.Duration) error {
 	hashKey := fmt.Sprintf("session:%s", sessionID)
 	fields := map[string]interface{}{
-		"clientID": clientID,
-		"token": jwtToken,
-		"email": email,
-		"verified": fmt.Sprintf("%v", verified),
+		"clientID":       clientID,
+		"token":          jwtToken,
+		"email":          email,
+		"refreshTokenID": refreshTokenID,
+	}
+	// Use custom expiry if provided, otherwise fall back to sessionTTL
+	expireAfter := sessionTTL
+	if len(expiry) > 0 {
+		expireAfter = expiry[0]
 	}
 	pipe := rdb.TxPipeline()
 	pipe.HSet(ctx, hashKey, fields)
-	pipe.Expire(ctx, hashKey, sessionTTL)
+	pipe.Expire(ctx, hashKey, expireAfter)
 	_, err := pipe.Exec(ctx)
 	if err != nil {
 		logger.Error("Failed to store session data for sessionID %s: %v", sessionID, err)
@@ -90,7 +96,6 @@ func UpdateSessionField(sessionID, field, value string) error {
 	return nil
 }
 
-// DeleteSession removes a sessionID from client set and deletes its hash
 func DeleteSession(sessionID string) error {
 	hashKey := fmt.Sprintf("session:%s", sessionID)
 	pipe := rdb.TxPipeline()
@@ -102,37 +107,6 @@ func DeleteSession(sessionID string) error {
 	}
 	logger.Debug("Deleted sessionID %s", sessionID)
 	return nil
-}
-
-// MarkSessionVerified sets the verified field in the session hash
-func MarkSessionVerified(sessionID string) error {
-	hashKey := fmt.Sprintf("session:%s", sessionID)
-	pipe := rdb.TxPipeline()
-	pipe.HSet(ctx, hashKey, "verified", "true")
-	pipe.Expire(ctx, hashKey, sessionTTL)
-	_, err := pipe.Exec(ctx)
-	if err != nil {
-		logger.Error("Failed to mark sessionID %s as verified: %v", sessionID, err)
-		return err
-	}
-	logger.Debug("Marked sessionID %s as verified", sessionID)
-	return nil
-}
-
-// IsSessionVerified checks if a session has been verified
-func IsSessionVerified(sessionID string) (bool, error) {
-	hashKey := fmt.Sprintf("session:%s", sessionID)
-	val, err := rdb.HGet(ctx, hashKey, "verified").Result()
-	if err != nil {
-		logger.Error("Failed to check verified status for sessionID %s: %v", sessionID, err)
-		return false, err
-	}
-	return val == "true", nil
-}
-
-// DeleteSessionData removes all session-related data for a sessionID and from client set
-func DeleteSessionData(sessionID string) error {
-	return DeleteSession(sessionID)
 }
 
 // StoreJWTForSession updates the token field in the session hash

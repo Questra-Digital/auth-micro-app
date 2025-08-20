@@ -16,10 +16,8 @@ type OTPEvent struct {
 	UserAgent   string    `json:"user_agent" gorm:"type:text"`
 	Attempts    int       `json:"attempts" gorm:"default:0"`
 	Resends     int       `json:"resends" gorm:"default:0"`
-	ErrorMsg    string    `json:"error_msg" gorm:"type:text"`
-	ExpiresAt   time.Time `json:"expires_at" gorm:"index"`
+	Msg         string    `json:"msg" gorm:"type:text"`
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime;index"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName specifies the table name for GORM

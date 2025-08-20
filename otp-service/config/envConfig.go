@@ -16,21 +16,16 @@ type Config struct {
 	DBSSLMode  string
 
 	// Redis
-	RedisHost       string
-	RedisPort       int
-	RedisPassword   string
-	RedisDB         int
-	SessionTTLHours int // in hours
+	RedisHost     string
+	RedisPort     int
+	RedisPassword string
+	RedisDB       int
 
 	// App
-	AppEnv       string
-	AuditTTLDays int
-	RateLimit    int
-
-	//Deployed Services
-	OtpService           string
-	ApiGatewayPort       int
-	AuthorizationService string
+	AppEnv          string
+	OTPEventTTLDays int
+	OtpServicePort int
+	EmailServiceUrl string
 }
 
 var AppConfig Config
@@ -45,11 +40,10 @@ func InitConfig() {
 		DBName:     getEnv("DB_NAME", "otp_audit"),
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 
-		RedisHost:            getEnv("REDIS_HOST", "localhost"),
-		RedisPassword:        getEnv("REDIS_PASSWORD", ""),
-		AppEnv:               getEnv("APP_ENV", "development"),
-		OtpService:           getEnv("OTP_SERVICE_URL", "http://otp-service:8080"),
-		AuthorizationService: getEnv("AUTHORIZATION_SERVICE_URL", "http://auth-service:8083"),
+		RedisHost:     getEnv("REDIS_HOST", "localhost"),
+		RedisPassword: getEnv("REDIS_PASSWORD", ""),
+		AppEnv:        getEnv("APP_ENV", "development"),
+		EmailServiceUrl: getEnv("Email_Service_URL","http://localhost:8082"),
 	}
 
 	// Parse DB_PORT
@@ -70,26 +64,16 @@ func InitConfig() {
 		log.Fatalf("Invalid REDIS_DB: %v", err)
 	}
 
-	// Parse Session TTL in hours
-	AppConfig.SessionTTLHours, err = parseEnvInt("SESSION_TTL_HOURS", 24)
+	// Parse OTP_EVENT_TTL_DAYS
+	AppConfig.OTPEventTTLDays, err = parseEnvInt("OTP_EVENT_TTL_DAYS", 30)
 	if err != nil {
-		log.Fatalf("Invalid SESSION_TTL_HOURS: %v", err)
+		log.Fatalf("Invalid OTP_EVENT_TTL_DAYS: %v", err)
 	}
 
-	// Parse Audit_TTL_Days
-	AppConfig.AuditTTLDays, err = parseEnvInt("Audit_TTL_Days", 30)
+	// Parse OTP_SERVICE_PORT
+	AppConfig.OtpServicePort, err = parseEnvInt("OTP_SERVICE_PORT", 8081)
 	if err != nil {
-		log.Fatalf("Invalid Audit_TTL_Days: %v", err)
-	}
-
-	AppConfig.RateLimit, err = parseEnvInt("Rate_Limit_Per_Minute", 3)
-	if err != nil {
-		log.Fatalf("Rate_Limit_Per_Minute: %v", err)
-	}
-
-	AppConfig.ApiGatewayPort, err = parseEnvInt("API_GATEWAY_PORT", 8080)
-	if err != nil {
-		log.Fatalf("API_GATEWAY_PORT: %v", err)
+		log.Fatalf("Invalid OTP_SERVICE_PORT: %v", err)
 	}
 }
 

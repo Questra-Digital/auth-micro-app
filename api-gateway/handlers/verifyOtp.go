@@ -1,17 +1,12 @@
 package handlers
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"time"
-
-	"api-gateway/config"
 	"api-gateway/models"
 	"api-gateway/redis"
 	"api-gateway/utils"
+	"net/http"
+	"time"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,6 +17,7 @@ type otpVerifyRequest struct {
 
 func VerifyOTPHandler(c *gin.Context) {
 	log := utils.NewLogger()
+	apiClient := utils.NewAPIClient()
 
 	// Extract request context info
 	reqCtx := models.RequestContext{
@@ -102,25 +98,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		return
 	}
 
-
-	// Step 4: Check if session is already verified
-	isVerified, err := redis.IsSessionVerified(sessionID)
-	if err != nil {
-		log.Error("Failed to check session verification status: %v", err)
-		// Continue with verification process
-	} else if isVerified {
-		log.Warn("Session already verified: %s", sessionID)
-
-		msg := "OTP already verified"
-		audit.StatusCode = http.StatusConflict
-		audit.Message = &msg
-		log.LogAuditEntry(audit)
-
-		c.JSON(http.StatusConflict, gin.H{"error": msg})
-		return
-	}
-
-	// Step 5: Parse OTP from request
+	// Step 4: Parse OTP from request
 	var otpReq otpVerifyRequest
 	if err := c.ShouldBindJSON(&otpReq); err != nil || otpReq.OTP == "" {
 		log.Warn("Invalid OTP payload")
@@ -134,29 +112,8 @@ func VerifyOTPHandler(c *gin.Context) {
 		return
 	}
 
-	// Step 6: Send OTP verify request to OTP service
-	otpReq.Email = email
-	otpPayload, _ := json.Marshal(otpReq)
-	otpServiceURL := fmt.Sprintf("%s/otp/verify", config.AppConfig.OtpService)
-
-	req, err := http.NewRequest("POST", otpServiceURL, bytes.NewBuffer(otpPayload))
-	if err != nil {
-		log.Error("Failed to create request to OTP service: %v", err)
-
-		msg := "Internal error preparing request"
-		audit.StatusCode = http.StatusInternalServerError
-		audit.Message = &msg
-		log.LogAuditEntry(audit)
-
-		c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Session-ID", sessionID)
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
+	// Step 5: Verify OTP using API client
+	resp, err := apiClient.VerifyOTP(otpReq.OTP, email, sessionID)
 	if err != nil {
 		log.Error("OTP service request failed: %v", err)
 
@@ -168,36 +125,113 @@ func VerifyOTPHandler(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"error": msg})
 		return
 	}
-	defer resp.Body.Close()
 
-	// Step 7: Log response status
-	body, _ := io.ReadAll(resp.Body)
-
+	// Step 6: Check OTP verification response
+	respBody, _ := utils.ReadResponseBody(resp)
 	if resp.StatusCode != http.StatusOK {
 		log.Warn("OTP verification failed with status=%d", resp.StatusCode)
 
-		msg := fmt.Sprintf("OTP verification failed with status=%d", resp.StatusCode)
+		msg := "OTP verification failed"
 		audit.StatusCode = resp.StatusCode
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.Data(resp.StatusCode, "application/json", body)
+		c.Data(resp.StatusCode, "application/json", respBody)
 		return
 	}
 
-	// Step 8: Mark session as verified
-	if err := redis.MarkSessionVerified(sessionID); err != nil {
-		log.Error("Failed to mark session as verified: %v", err)
+	// Step 7: Delete session after successful OTP verification
+	if err := redis.DeleteSession(sessionID); err != nil {
+		log.Error("Failed to delete session after OTP verification: %v", err)
 		// Continue anyway as OTP verification was successful
 	}
 
 	log.Info("OTP verified successfully for sessionId=%s", sessionID)
 
+	// Step 8: Delete the previous sessionId from the cookie
+	c.SetCookie("sessionId", "", -1, "/", "", true, true)
+
+	// Step 9: Get access token using API client
+	authResp, err := apiClient.GetAccessToken(email)
+	if err != nil {
+		log.Error("Auth service request failed: %v", err)
+
+		msg := "Auth service unreachable"
+		audit.StatusCode = http.StatusBadGateway
+		audit.Message = &msg
+		log.LogAuditEntry(audit)
+
+		c.JSON(http.StatusBadGateway, gin.H{"error": msg})
+		return
+	}
+
+	// Step 10: Process auth response
+	authRespBody, _ := utils.ReadResponseBody(authResp)
+	if authResp.StatusCode != http.StatusOK {
+		log.Error("Auth service responded with status %d: %s", authResp.StatusCode, string(authRespBody))
+
+		msg := "Failed to get access token"
+		audit.StatusCode = authResp.StatusCode
+		audit.Message = &msg
+		log.LogAuditEntry(audit)
+
+		c.JSON(authResp.StatusCode, gin.H{"error": msg})
+		return
+	}
+
+	// Step 11: Parse auth response and extract tokens
+	authResponse, err := utils.ParseAuthResponse(authRespBody)
+	if err != nil {
+		log.Error("Failed to parse auth response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid auth response format"})
+		return
+	}
+
+	accessToken, refreshToken, refreshTokenDuration, err := utils.ExtractTokensAndDuration(authResponse)
+	if err != nil {
+		log.Error("Missing tokens in auth response")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid auth response - missing tokens"})
+		return
+	}
+
+	// Step 12: Generate a new sessionId
+	newSessionID, err := utils.GenerateSessionID()
+	if err != nil {
+		log.Error("Failed to generate new session ID: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// Step 13: Store the access token, refresh token, and refreshTokenId in Redis
+	// Use refresh token duration for session TTL
+	sessionTTL := time.Duration(refreshTokenDuration) * 24 * time.Hour
+	if err := redis.StoreSessionData(newSessionID, clientID, accessToken, email, refreshToken, sessionTTL); err != nil {
+		log.Error("Failed to store new session data: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// Step 14: Send the new sessionId as a cookie to the client
+	// Cookie MaxAge should match session data TTL (refresh token duration)
+	newCookie := &http.Cookie{
+		Name:     "sessionId",
+		Value:    newSessionID,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(sessionTTL.Seconds()), // Use refresh token duration
+	}
+	http.SetCookie(c.Writer, newCookie)
+
+	// Step 15: Respond with HTTP status 200 OK and a success message
 	msg := "OTP verification successful"
 	audit.StatusCode = http.StatusOK
 	audit.Message = &msg
 	log.LogAuditEntry(audit)
 
-	// Step 9: Respond to client
-	c.Data(resp.StatusCode, "application/json", body)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "OTP verification successful",
+		"status":  "success",
+	})
 }

@@ -2,80 +2,107 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 	"otp-service/config"
 	"otp-service/models"
 	"otp-service/redis"
 	"otp-service/utils"
 	"time"
-	"log"
-	"os"
+	"bytes"
+	"encoding/json"
 )
 
 func GenerateOTPHandler(c *gin.Context) {
 	logger := utils.NewLogger()
 
+	// Parse request body
 	var req models.OTPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogGenerateFailure(c, req.Email, "", "Valid email is required", 0)
+		params := utils.OTPEventParams{
+			Email:       req.Email,
+			EventType:   models.EventTypeGenerate,
+			EventStatus: models.EventStatusFailed,
+			Msg:         "Valid email is required",
+		}
+		logger.LogOTPEvent(c, params)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid email is required"})
 		return
 	}
 	email := req.Email
 
-	// Get or generate session ID
-	sessionID, err := c.Cookie("session_id")
-	var session *models.OTPSession
-	if err != nil || sessionID == "" {
-		sessionID = utils.GenerateSessionID()
-		c.SetCookie("session_id", sessionID, int(config.OTPTTL.Seconds()), "/", "", false, true)
-		session = &models.OTPSession{
-			Email:     email,
-			SessionID: sessionID,
-			Resends:   0,
-			Attempts:  0,
-			CreatedAt: time.Now(),
+	sessionID := c.GetHeader("X-Session-ID")
+	if sessionID == "" {
+		params := utils.OTPEventParams{
+			Email:       email,
+			EventType:   models.EventTypeGenerate,
+			EventStatus: models.EventStatusFailed,
+			Msg:         "Missing X-Session-ID header",
 		}
-	} else {
-		sessionValue, err := redis.GetSession(sessionID)
-		if err != nil {
-			if err.Error() == "redis: nil" {
-				logger.LogGenerateFailure(c, email, sessionID, "Session against this sessionId does not exist", 0)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Session against this sessionId does not exist"})
-				return
+		logger.LogOTPEvent(c, params)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing X-Session-ID header"})
+		return
+	}
+
+	var session *models.OTPSession
+	params := utils.OTPEventParams{
+		Email:     email,
+		SessionID: sessionID,
+		EventType: models.EventTypeGenerate,
+	}
+
+	sessionValue, err := redis.GetSession(sessionID)
+	if err != nil {
+		if err.Error() == "redis: nil" {
+			session = &models.OTPSession{
+				Email:     email,
+				SessionID: sessionID,
+				Resends:   0,
+				Attempts:  0,
+				CreatedAt: time.Now(),
 			}
+		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis error while retrieving session"})
 			return
 		}
+	} else {
 		session = &sessionValue
 		session.Resends++
+		params.Resends = session.Resends
+
 		if session.Resends >= config.MaxResends {
 			redis.DeleteSession(sessionID)
-			c.SetCookie("session_id", "", -1, "/", "", false, true)
-			logger.LogGenerateBlocked(c, email, sessionID, "Maximum resends exceeded", session.Resends)
+			params.EventType = models.EventTypeRateLimit
+			params.EventStatus = models.EventStatusBlocked
+			params.Msg = "Maximum resends exceeded"
+			logger.LogOTPEvent(c, params)
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Maximum OTP resends exceeded"})
 			return
 		}
-		// Log resend event
-		logger.LogGenerateResend(c, email, sessionID, session.OTPHash, session.Resends)
+
+		params.EventType = models.EventTypeResend
+		params.EventStatus = models.EventStatusSuccess
+		params.Msg = "OTP resent successfully"
+		params.OTPHash = session.OTPHash
+		logger.LogOTPEvent(c, params)
 	}
 
 	// Generate and hash OTP
 	otp := utils.GenerateSecureOTP(config.OTPLength)
 	hashedOTP, err := utils.HashOTP(otp)
 	if err != nil {
-		logger.LogGenerateFailure(c, email, sessionID, "Failed to hash OTP", session.Resends)
+		params.EventStatus = models.EventStatusFailed
+		params.Msg = "Failed to hash OTP"
+		logger.LogOTPEvent(c, params)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash OTP"})
 		return
 	}
 
-	// Log OTP value in development mode only
-	if os.Getenv("APP_ENV") != "production" {
+	if config.AppConfig.AppEnv != "production" {
 		log.Printf("[DEVELOPMENT] Generated OTP for %s: %s", email, otp)
 	}
 
-	// Update session data
-	session.SessionID = sessionID
+	// Update session
 	session.OTPHash = hashedOTP
 	session.CreatedAt = time.Now()
 
@@ -84,6 +111,37 @@ func GenerateOTPHandler(c *gin.Context) {
 		return
 	}
 
-	logger.LogGenerateSuccess(c, email, sessionID, hashedOTP, session.Resends)
-	c.JSON(http.StatusOK, gin.H{"success": "OTP generated successfully"})
+	// Send OTP to email-service
+	emailServiceURL := config.AppConfig.EmailServiceUrl + "/send-otp"
+	emailReqBody, err := json.Marshal(map[string]string{
+		"email": email,
+		"otp":   otp,
+	})
+	if err != nil {
+		redis.DeleteSession(sessionID)
+		params.EventStatus = models.EventStatusFailed
+		params.Msg = "Failed to marshal email request"
+		logger.LogOTPEvent(c, params)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP"})
+		return
+	}
+
+	resp, err := http.Post(emailServiceURL, "application/json", bytes.NewBuffer(emailReqBody))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		redis.DeleteSession(sessionID)
+		params.EventStatus = models.EventStatusFailed
+		params.Msg = "Failed to deliver OTP via email service"
+		logger.LogOTPEvent(c, params)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to deliver OTP"})
+		return
+	}
+
+	params.EventType = models.EventTypeGenerate
+	params.EventStatus = models.EventStatusSuccess
+	params.Msg = "OTP generated and sent successfully"
+	params.OTPHash = hashedOTP
+	params.Resends = session.Resends
+	logger.LogOTPEvent(c, params)
+
+	c.JSON(http.StatusOK, gin.H{"success": "OTP sent successfully"})
 }

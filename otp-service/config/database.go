@@ -3,9 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
-	"os"
 	"time"
-
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -13,103 +11,84 @@ import (
 )
 
 var DB *gorm.DB
+var sqlDBInstance *gorm.DB // for tracking underlying *sql.DB
 
-// DatabaseConfig holds database configuration
 type DatabaseConfig struct {
 	Host     string
-	Port     string
+	Port     int
 	User     string
 	Password string
 	DBName   string
 	SSLMode  string
 }
 
-// GetDatabaseConfig returns database configuration from environment variables
 func GetDatabaseConfig() DatabaseConfig {
 	return DatabaseConfig{
-		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     getEnv("DB_PORT", "5432"),
-		User:     getEnv("DB_USER", "postgres"),
-		Password: getEnv("DB_PASSWORD", "password"),
-		DBName:   getEnv("DB_NAME", "otp_audit"),
-		SSLMode:  getEnv("DB_SSLMODE", "disable"),
+		Host:     AppConfig.DBHost,
+		Port:     AppConfig.DBPort,//Convert int to string
+		User:     AppConfig.DBUser,
+		Password: AppConfig.DBPassword,
+		DBName:   AppConfig.DBName,
+		SSLMode:  AppConfig.DBSSLMode,
 	}
 }
 
-// InitDatabase initializes the GORM database connection
+// InitDatabase connects to the existing database (does not create it)
 func InitDatabase() error {
 	config := GetDatabaseConfig()
-	
-	// First connect to default postgres database to create our target database
-	defaultDSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=postgres sslmode=%s",
-		config.Host, config.Port, config.User, config.Password, config.SSLMode)
-	
-	defaultDB, err := gorm.Open(postgres.Open(defaultDSN), &gorm.Config{
+
+	dsn := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode,
+	)
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to connect to default database: %w", err)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Create the target database if it doesn't exist
-	var count int64
-	defaultDB.Raw("SELECT 1 FROM pg_database WHERE datname = ?", config.DBName).Count(&count)
-	if count == 0 {
-		createSQL := fmt.Sprintf("CREATE DATABASE %s", config.DBName)
-		if err := defaultDB.Exec(createSQL).Error; err != nil {
-			return fmt.Errorf("failed to create database %s: %w", config.DBName, err)
-		}
-		log.Printf("Database '%s' created successfully", config.DBName)
-	}
-
-	// Close the default connection
-	sqlDB, err := defaultDB.DB()
-	if err == nil {
-		sqlDB.Close()
-	}
-	
-	// Now connect to our target database
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode)
-	
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info), // Set to logger.Silent for production
-	})
+	DB = db
+	sqlDB, err := db.DB()
 	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
+		return fmt.Errorf("failed to get sql.DB: %w", err)
 	}
 
-	// Get the underlying sql.DB object to configure connection pool
-	sqlDB, err = DB.DB()
-	if err != nil {
-		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
-	}
-
-	// Set connection pool settings
+	// Connection pool settings
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(5)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
-	log.Println("Database connection established successfully")
+	log.Println("Connected to PostgreSQL successfully")
+	if err := CreateTable(); err != nil {
+		return fmt.Errorf("failed to create tables: %w", err)
+	}
 	return nil
 }
 
-// CreateTables creates the necessary tables using GORM AutoMigrate
-func CreateTables() error {
-	// AutoMigrate will create tables and add missing columns
-	err := DB.AutoMigrate(&models.OTPEvent{}, &models.RateLimitEvent{})
+// CloseDatabaseConnection safely closes the database connection
+func CloseDatabaseConnection() {
+	if DB == nil {
+		return
+	}
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Printf("Failed to retrieve sql.DB for closing: %v", err)
+		return
+	}
+	if err := sqlDB.Close(); err != nil {
+		log.Printf("Error while closing DB connection: %v", err)
+	} else {
+		log.Println("Database connection closed successfully")
+	}
+}
+
+func CreateTable() error {
+	err := DB.AutoMigrate(&models.OTPEvent{})
 	if err != nil {
 		return fmt.Errorf("failed to auto-migrate tables: %w", err)
 	}
-
 	log.Println("Database tables created/verified successfully")
 	return nil
 }
-
-// getEnv gets an environment variable or returns a default value
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-} 

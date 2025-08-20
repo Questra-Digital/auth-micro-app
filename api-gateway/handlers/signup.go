@@ -2,21 +2,20 @@ package handlers
 
 import (
 	"api-gateway/models"
-	"api-gateway/utils"
 	"api-gateway/redis"
-	"bytes"
-	"encoding/json"
+	"api-gateway/utils"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
 	"time"
-	"api-gateway/config"
+
 	"github.com/gin-gonic/gin"
 )
 
 func SignUpHandler(c *gin.Context) {
 	log := utils.NewLogger()
+	apiClient := utils.NewAPIClient()
 
 	// Extract request context info
 	reqCtx := models.RequestContext{
@@ -75,38 +74,16 @@ func SignUpHandler(c *gin.Context) {
 		log.Error("Failed to generate session ID: %v", err)
 
 		msg := "Internal server error"
-		auditEntry := log.NewAuditEntry(
-			models.EventGroupAuth,
-			models.ActionSignup,
-			nil,
-			nil,
-			reqCtx,
-			http.StatusInternalServerError,
-			&msg,
-		)
-		log.LogAuditEntry(auditEntry)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 		return
 	}
 
 	// Store session data in Redis (clientID as a field in the session hash)
 	clientID := c.ClientIP()
-	if err := redis.StoreSessionData(sessionID, clientID, "", body.Email, false); err != nil {
+	if err := redis.StoreSessionData(sessionID, clientID, "", body.Email, "", 15*time.Minute); err != nil {
 		log.Error("Failed to store session data in Redis: %v", err)
 
 		msg := "Internal server error"
-		auditEntry := log.NewAuditEntry(
-			models.EventGroupAuth,
-			models.ActionSignup,
-			nil,
-			&sessionID,
-			reqCtx,
-			http.StatusInternalServerError,
-			&msg,
-		)
-		log.LogAuditEntry(auditEntry)
-
 		c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 		return
 	}
@@ -119,40 +96,35 @@ func SignUpHandler(c *gin.Context) {
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int((24 * time.Hour).Seconds()),
+		MaxAge:   int((15 * time.Minute).Seconds()), // this token will live only for 15 mins.
 	}
 	http.SetCookie(c.Writer, cookie)
 
-	// Prepare OTP request
-	otpPayload := map[string]string{"email": body.Email}
-	otpBody, _ := json.Marshal(otpPayload)
-
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/otp/generate", config.AppConfig.OtpService), bytes.NewBuffer(otpBody))
+	// Request OTP using API client
+	resp, err := apiClient.RequestOTP(body.Email, sessionID)
 	if err != nil {
-		log.Error("Failed to create request to OTP service: %v", err)
+		log.Error("Request to OTP service failed: %v", err)
 
-		msg := "Internal server error"
+		msg := "OTP service unreachable"
 		auditEntry := log.NewAuditEntry(
 			models.EventGroupAuth,
 			models.ActionSignup,
-			nil,
+			&clientID,
 			&sessionID,
 			reqCtx,
-			http.StatusInternalServerError,
+			http.StatusBadGateway,
 			&msg,
 		)
 		log.LogAuditEntry(auditEntry)
 
-		c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		c.JSON(http.StatusBadGateway, gin.H{"error": msg})
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Session-ID", sessionID)
 
-	// Call OTP service
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
+	// Read response body
+	respBody, _ := io.ReadAll(resp.Body)
 
+	// Prepare audit entry
 	msg := "Signup attempt"
 	auditEntry := log.NewAuditEntry(
 		models.EventGroupAuth,
@@ -160,24 +132,9 @@ func SignUpHandler(c *gin.Context) {
 		&clientID,
 		&sessionID,
 		reqCtx,
-		0,
+		resp.StatusCode,
 		&msg,
 	)
-
-	if err != nil {
-		log.Error("Request to OTP service failed: %v", err)
-		auditEntry.StatusCode = http.StatusBadGateway
-		failMsg := "OTP service unreachable"
-		auditEntry.Message = &failMsg
-		log.LogAuditEntry(auditEntry)
-
-		c.JSON(http.StatusBadGateway, gin.H{"error": failMsg})
-		return
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	auditEntry.StatusCode = resp.StatusCode
 
 	if resp.StatusCode == http.StatusOK {
 		log.Info("OTP sent successfully to %s", body.Email)

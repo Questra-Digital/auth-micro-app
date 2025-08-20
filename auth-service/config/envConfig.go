@@ -8,13 +8,13 @@ import (
 
 type Config struct {
 	// PostgreSQL
-	DBHost       string
-	DBPort       int
-	DBUser       string
-	DBPassword   string
-	DBSSLMode    string
-	AuditDBName  string
-	UserDBName   string
+	DBHost      string
+	DBPort      int
+	DBUser      string
+	DBPassword  string
+	DBSSLMode   string
+	AuditDBName string
+	UserDBName  string
 
 	// Redis
 	RedisHost     string
@@ -31,6 +31,10 @@ type Config struct {
 	JWTSecret string
 
 	AppPort int
+
+	// Token durations
+	AccessTokenDuration  int // in hours
+	RefreshTokenDuration int // in days
 }
 
 var AppConfig Config
@@ -93,6 +97,17 @@ func InitConfig() {
 	AppConfig.AppPort, err = parseEnvInt("AS_PORT", 8083)
 	if err != nil {
 		log.Fatalf("AS_Port: %v", err)
+	}
+
+	// Parse token durations
+	AppConfig.AccessTokenDuration, err = parseEnvInt("ACCESS_TOKEN_DURATION_HOURS", 1)
+	if err != nil {
+		log.Fatalf("Invalid ACCESS_TOKEN_DURATION_HOURS: %v", err)
+	}
+
+	AppConfig.RefreshTokenDuration, err = parseEnvInt("REFRESH_TOKEN_DURATION_DAYS", 7)
+	if err != nil {
+		log.Fatalf("Invalid REFRESH_TOKEN_DURATION_DAYS: %v", err)
 	}
 }
 

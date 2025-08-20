@@ -48,23 +48,30 @@ func RateLimitMiddleware() gin.HandlerFunc {
 		context, err := RedisLimiter.Get(c, ip)
 		if err != nil {
 			// Log rate limiter error
-			logger.LogRateLimit(c, c.Request.URL.Path, c.Request.Method, "IP_BASED", 0, 0, "1m", false)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Rate limiter error"})
 			return
 		}
 
+		// Log data
+		params := utils.RateLimitParams{
+			Endpoint:     c.Request.URL.Path,
+			Method:       c.Request.Method,
+			RateLimit:    "IP_BASED",
+			RequestCount: int(context.Limit - context.Remaining),
+			Limit:        int(context.Limit),
+			Window:       "1m",
+			Blocked:      context.Reached,
+		}
+
+
 		// Check if limit is exceeded
 		if context.Reached {
-			// Log blocked rate limit event
-			logger.LogRateLimit(c, c.Request.URL.Path, c.Request.Method, "IP_BASED", 
-				int(context.Limit), int(context.Limit), "1m", true)
+			logger.LogRateLimit(c, params)
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
 			return
 		}
 
-		// Log allowed rate limit event
-		logger.LogRateLimit(c, c.Request.URL.Path, c.Request.Method, "IP_BASED", 
-			int(context.Remaining), int(context.Limit), "1m", false)
+		logger.LogRateLimit(c, params)
 
 		// Allow request
 		c.Next()
