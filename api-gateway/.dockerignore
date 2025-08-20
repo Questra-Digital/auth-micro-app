@@ -1,0 +1,23 @@
+# Ignore common sensitive or unnecessary files
+.env
+.git
+.gitignore
+*.log
+*.bak
+*.tmp
+*.md
+
+# Go cache/build files
+bin/
+*.out
+*.test
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Docker-related
+docker-compose.yml
+Dockerfile
