@@ -1,11 +1,13 @@
 # API Gateway
 
-The entry point for all client requests. Orchestrates signup, OTP, registration, and login flows by proxying to other microservices.
+The entry point for all client requests. Orchestrates signup, OTP, registration, login, and resource access flows by proxying to other microservices.
 
 ## Features
 - Signup and OTP orchestration
 - Session management via Redis
 - User registration and login
+- JWT token validation and refresh
+- Resource access with scope-based authorization
 - Rate limiting per IP
 - Audit logging to PostgreSQL
 
@@ -14,9 +16,12 @@ The entry point for all client requests. Orchestrates signup, OTP, registration,
 | Endpoint           | Method | Description                                 |
 |--------------------|--------|---------------------------------------------|
 | `/signup`          | POST   | Start signup and trigger OTP                |
-| `/verify-otp`      | POST   | Verify OTP for session                      |
-| `/registerUser`    | POST   | Register user after OTP verification        |
-| `/login`           | POST   | Authenticate user and get JWT               |
+| `/verify-otp`      | POST   | Verify OTP and get access token             |
+| `/resources`       | GET    | Get all resources (requires read scope)     |
+| `/resources/:id`   | GET    | Get specific resource (requires read scope) |
+| `/resources`       | POST   | Create new resource (requires write scope)  |
+| `/resources/:id`   | PUT    | Update resource (requires write scope)      |
+| `/resources/:id`   | DELETE | Delete resource (requires write scope)      |
 
 ## Example Usage
 
@@ -34,18 +39,32 @@ curl -X POST http://localhost:8080/verify-otp \
   -d '{"otp":"123456"}' --cookie "sessionId=abcd1234"
 ```
 
-### Register User
+### Get Resources
 ```bash
-curl -X POST http://localhost:8080/registerUser \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123"}' --cookie "sessionId=abcd1234"
+curl -X GET http://localhost:8080/resources \
+  --cookie "sessionId=abcd1234"
 ```
 
-### Login
+### Create Resource
 ```bash
-curl -X POST http://localhost:8080/login \
+curl -X POST http://localhost:8080/resources \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123"}'
+  -d '{"name":"New Resource","description":"A new resource"}' \
+  --cookie "sessionId=abcd1234"
+```
+
+### Update Resource
+```bash
+curl -X PUT http://localhost:8080/resources/550e8400-e29b-41d4-a716-446655440001 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Updated Resource","description":"Updated description"}' \
+  --cookie "sessionId=abcd1234"
+```
+
+### Delete Resource
+```bash
+curl -X DELETE http://localhost:8080/resources/550e8400-e29b-41d4-a716-446655440001 \
+  --cookie "sessionId=abcd1234"
 ```
 
 ## Environment Variables
@@ -62,11 +81,14 @@ curl -X POST http://localhost:8080/login \
 | REDIS_PORT                  | 6379                        | Redis port                                  |
 | REDIS_PASSWORD              | 12345678                    | Redis password                              |
 | REDIS_DB                    | 0                           | Redis DB index                              |
+| SESSION_TTL_HOURS           | 24                          | Session TTL in hours                        |
 | APP_ENV                     | development                 | Application environment                     |
+| JWT_SECRET                  | your-jwt-secret-key         | Secret for JWT token validation             |
 | Audit_TTL_Days              | 30                          | Audit log retention in days                 |
 | Rate_Limit_Per_Minute       | 10000                       | Requests per minute per IP                  |
 | OTP_SERVICE_URL             | http://otp-service:8081     | OTP service endpoint                        |
 | AUTHORIZATION_SERVICE_URL   | http://auth-service:8083    | Auth service endpoint                       |
+| RESOURCE_SERVICE_URL        | http://resource-service:8084| Resource service endpoint                   |
 | API_GATEWAY_PORT            | 8080                        | Service port                                |
 
 ## Running (Docker Compose)

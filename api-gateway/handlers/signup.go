@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"api-gateway/api"
 	"api-gateway/models"
 	"api-gateway/redis"
 	"api-gateway/utils"
@@ -15,7 +16,7 @@ import (
 
 func SignUpHandler(c *gin.Context) {
 	log := utils.NewLogger()
-	apiClient := utils.NewAPIClient()
+	otpClient := api.NewOTPClient()
 
 	// Extract request context info
 	reqCtx := models.RequestContext{
@@ -29,9 +30,9 @@ func SignUpHandler(c *gin.Context) {
 		Email string `json:"email"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Email == "" {
-		log.Warn("Invalid or missing email in request body")
+		log.Warn("Missing email in request body")
 
-		msg := "Invalid or missing email"
+		msg := "Missing email"
 		auditEntry := log.NewAuditEntry(
 			models.EventGroupAuth,
 			models.ActionSignup,
@@ -53,17 +54,6 @@ func SignUpHandler(c *gin.Context) {
 		log.Warn("Invalid email format: %s", body.Email)
 
 		msg := "Invalid email format"
-		auditEntry := log.NewAuditEntry(
-			models.EventGroupAuth,
-			models.ActionSignup,
-			nil,
-			nil,
-			reqCtx,
-			http.StatusBadRequest,
-			&msg,
-		)
-		log.LogAuditEntry(auditEntry)
-
 		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
@@ -100,8 +90,8 @@ func SignUpHandler(c *gin.Context) {
 	}
 	http.SetCookie(c.Writer, cookie)
 
-	// Request OTP using API client
-	resp, err := apiClient.RequestOTP(body.Email, sessionID)
+	// Request OTP using OTP client
+	resp, err := otpClient.RequestOTP(body.Email, sessionID)
 	if err != nil {
 		log.Error("Request to OTP service failed: %v", err)
 

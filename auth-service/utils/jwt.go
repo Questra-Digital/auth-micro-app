@@ -7,8 +7,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte(config.AppConfig.JWTSecret)
-
 type CustomClaims struct {
 	UserID string   `json:"user_id"`
 	Email  string   `json:"email"`
@@ -18,6 +16,7 @@ type CustomClaims struct {
 
 // GenerateJWT generates a signed JWT access token
 func GenerateJWT(userID, email string, scopes []string) (string, error) {
+	secret := []byte(config.AppConfig.JWTSecret)
 	claims := CustomClaims{
 		UserID: userID,
 		Email:  email,
@@ -30,5 +29,5 @@ func GenerateJWT(userID, email string, scopes []string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(secret)
 }

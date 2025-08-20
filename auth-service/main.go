@@ -6,12 +6,13 @@ import (
 	"auth-server/middleware"
 	"auth-server/redis"
 	"auth-server/utils"
-	"github.com/gin-gonic/gin"
 	"log"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -49,6 +50,7 @@ func main() {
 
 	// Routes placeholder
 	r.POST("/getAccessToken", handlers.GetAccessToken)
+	r.POST("/refreshToken", handlers.RefreshAccessToken)
 
 	// Start server in a goroutine
 	go func() {
