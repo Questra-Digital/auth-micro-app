@@ -51,7 +51,7 @@ func InitConfig() {
 		RedisPassword:        getEnv("REDIS_PASSWORD", ""),
 		AppEnv:               getEnv("APP_ENV", "development"),
 		JWTSecret:            getEnv("JWT_SECRET", ""),
-		OtpService:           getEnv("OTP_SERVICE_URL", "http://otp-service:8080"),
+		OtpService:           getEnv("OTP_SERVICE_URL", "http://otp-service:8081"),
 		AuthorizationService: getEnv("AUTHORIZATION_SERVICE_URL", "http://auth-service:8083"),
 		ResourceServiceURL:   getEnv("RESOURCE_SERVICE_URL", "http://resource-service:8084"),
 	}

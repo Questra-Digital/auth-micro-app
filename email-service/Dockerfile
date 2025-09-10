@@ -19,6 +19,6 @@ WORKDIR /app
 COPY --from=builder /app/email-service .
 COPY --from=builder /app/templates ./templates
 
-EXPOSE 8082
+EXPOSE 8080
 
 CMD ["./email-service"]

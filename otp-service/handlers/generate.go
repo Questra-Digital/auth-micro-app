@@ -1,7 +1,8 @@
 package handlers
 
 import (
-	"github.com/gin-gonic/gin"
+	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"otp-service/config"
@@ -9,8 +10,8 @@ import (
 	"otp-service/redis"
 	"otp-service/utils"
 	"time"
-	"bytes"
-	"encoding/json"
+
+	"github.com/gin-gonic/gin"
 )
 
 func GenerateOTPHandler(c *gin.Context) {

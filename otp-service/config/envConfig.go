@@ -24,7 +24,7 @@ type Config struct {
 	// App
 	AppEnv          string
 	OTPEventTTLDays int
-	OtpServicePort int
+	OtpServicePort  int
 	EmailServiceUrl string
 }
 
@@ -40,10 +40,10 @@ func InitConfig() {
 		DBName:     getEnv("DB_NAME", "otp_audit"),
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 
-		RedisHost:     getEnv("REDIS_HOST", "localhost"),
-		RedisPassword: getEnv("REDIS_PASSWORD", ""),
-		AppEnv:        getEnv("APP_ENV", "development"),
-		EmailServiceUrl: getEnv("Email_Service_URL","http://localhost:8082"),
+		RedisHost:       getEnv("REDIS_HOST", "localhost"),
+		RedisPassword:   getEnv("REDIS_PASSWORD", ""),
+		AppEnv:          getEnv("APP_ENV", "development"),
+		EmailServiceUrl: getEnv("Email_Service_URL", "http://email-service:8080"),
 	}
 
 	// Parse DB_PORT
