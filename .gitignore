@@ -14,9 +14,10 @@
 # Dependency cache
 **/go.sum
 
-# Local env files
+# Local env files excluding example files
 **/.env
 **/.env.*
+!**/.env.example
 
 # Editor/OS-specific files
 *.log
