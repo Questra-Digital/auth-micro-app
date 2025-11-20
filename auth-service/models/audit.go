@@ -49,7 +49,7 @@ type AuditRecord struct {
 
 // TableName overrides the default table name
 func (AuditRecord) TableName() string {
-	return "audit_records"
+	return "auth_service_audit_logs"
 }
 
 // Utility function : convert slice of scopes to string

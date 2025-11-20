@@ -54,7 +54,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": msg})
 		return
 	}
 	audit.SessionID = &sessionID
@@ -72,7 +72,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": msg})
 		return
 	}
 	if sessionData["clientID"] != clientID {
@@ -83,7 +83,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -91,7 +91,7 @@ func VerifyOTPHandler(c *gin.Context) {
 	if email == "" {
 		log.Warn("Missing email in session data")
 		msg := "Email not found in session"
-		c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -105,7 +105,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -119,12 +119,11 @@ func VerifyOTPHandler(c *gin.Context) {
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.JSON(http.StatusBadGateway, gin.H{"error": msg})
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": msg})
 		return
 	}
 
 	// Step 6: Check OTP verification response
-	respBody, _ := api.ReadResponseBody(resp)
 	if resp.StatusCode != http.StatusOK {
 		log.Warn("OTP verification failed with status=%d", resp.StatusCode)
 
@@ -133,7 +132,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.Data(resp.StatusCode, "application/json", respBody)
+		c.JSON(resp.StatusCode, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -158,7 +157,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.JSON(http.StatusBadGateway, gin.H{"error": msg})
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -172,7 +171,7 @@ func VerifyOTPHandler(c *gin.Context) {
 		audit.Message = &msg
 		log.LogAuditEntry(audit)
 
-		c.JSON(authResp.StatusCode, gin.H{"error": msg})
+		c.JSON(authResp.StatusCode, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -180,14 +179,14 @@ func VerifyOTPHandler(c *gin.Context) {
 	authResponse, err := api.ParseAuthResponse(authRespBody)
 	if err != nil {
 		log.Error("Failed to parse auth response: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid auth response format"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Invalid auth response format"})
 		return
 	}
 
-	accessToken, refreshToken, refreshTokenDuration, err := api.ExtractTokensAndDuration(authResponse)
+	accessToken, refreshToken, refreshTokenDuration, userIDInt, err := api.ExtractTokensAndDuration(authResponse)
 	if err != nil {
 		log.Error("Missing tokens in auth response")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid auth response - missing tokens"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Invalid auth response - missing tokens"})
 		return
 	}
 
@@ -195,16 +194,16 @@ func VerifyOTPHandler(c *gin.Context) {
 	newSessionID, err := utils.GenerateSessionID()
 	if err != nil {
 		log.Error("Failed to generate new session ID: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Internal server error"})
 		return
 	}
 
 	// Step 13: Store the access token, refresh token, and refreshTokenId in Redis
 	// Use refresh token duration for session TTL
 	sessionTTL := time.Duration(refreshTokenDuration) * 24 * time.Hour
-	if err := redis.StoreSessionData(newSessionID, clientID, accessToken, email, refreshToken, sessionTTL); err != nil {
+	if err := redis.StoreSessionData(newSessionID, clientID, accessToken, email, refreshToken, userIDInt, sessionTTL); err != nil {
 		log.Error("Failed to store new session data: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Internal server error"})
 		return
 	}
 
@@ -228,7 +227,8 @@ func VerifyOTPHandler(c *gin.Context) {
 	log.LogAuditEntry(audit)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "OTP verification successful",
-		"status":  "success",
+		"success": true,
+		"message": msg,
+		"data": map[string]interface{}{"user_id": userIDInt},
 	})
 }

@@ -44,7 +44,7 @@ curl -X POST http://localhost:8083/refreshToken \
 | DB_PORT                 | 5432                 | PostgreSQL port                             |
 | DB_USER                 | postgres             | PostgreSQL user                             |
 | DB_PASSWORD             | 12345678             | PostgreSQL password                         |
-| AUDIT_DB_NAME           | audit                | Audit database name                         |
+| AUDIT_DB_NAME           | t_hex_audit          | Audit database name                         |
 | USER_DB_NAME            | users                | User database name                          |
 | DB_SSLMODE              | disable              | PostgreSQL SSL mode                         |
 | REDIS_HOST              | redis                | Redis host                                  |

@@ -15,3 +15,7 @@ type EmailAudit struct {
 	UpdatedAt time.Time       `json:"updated_at"`
 	DeletedAt gorm.DeletedAt  `gorm:"index" json:"-"`
 } 
+
+func (EmailAudit) TableName() string {
+	return "email_service_audit_logs"
+}

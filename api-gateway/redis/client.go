@@ -42,13 +42,14 @@ func CloseRedis() error {
 }
 
 // StoreSessionData stores all session data in a hash with optional expiry
-func StoreSessionData(sessionID, clientID, jwtToken, email, refreshTokenID string, expiry ...time.Duration) error {
+func StoreSessionData(sessionID, clientID, jwtToken, email, refreshTokenID string, userID int64, expiry ...time.Duration) error {
 	hashKey := fmt.Sprintf("session:%s", sessionID)
 	fields := map[string]interface{}{
 		"clientID":       clientID,
 		"token":          jwtToken,
 		"email":          email,
 		"refreshTokenID": refreshTokenID,
+		"userID":         userID,
 	}
 	// Use custom expiry if provided, otherwise fall back to sessionTTL
 	expireAfter := sessionTTL

@@ -75,7 +75,7 @@ curl -X DELETE http://localhost:8080/resources/550e8400-e29b-41d4-a716-446655440
 | DB_PORT                     | 5432                        | PostgreSQL port                             |
 | DB_USER                     | postgres                    | PostgreSQL user                             |
 | DB_PASSWORD                 | 12345678                    | PostgreSQL password                         |
-| DB_NAME                     | audit                       | Audit database name                         |
+| DB_NAME                     | t_hex_audit                 | Audit database name                         |
 | DB_SSLMODE                  | disable                     | PostgreSQL SSL mode                         |
 | REDIS_HOST                  | redis                       | Redis host                                  |
 | REDIS_PORT                  | 6379                        | Redis port                                  |

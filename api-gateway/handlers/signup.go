@@ -29,22 +29,27 @@ func SignUpHandler(c *gin.Context) {
 	var body struct {
 		Email string `json:"email"`
 	}
+
+	msg := "Missing email"
+	auditEntry := log.NewAuditEntry(
+		models.EventGroupAuth,
+		models.ActionSignup,
+		nil,
+		nil,
+		reqCtx,
+		http.StatusBadRequest,
+		&msg,
+	)
+
 	if err := c.ShouldBindJSON(&body); err != nil || body.Email == "" {
 		log.Warn("Missing email in request body")
 
-		msg := "Missing email"
-		auditEntry := log.NewAuditEntry(
-			models.EventGroupAuth,
-			models.ActionSignup,
-			nil,
-			nil,
-			reqCtx,
-			http.StatusBadRequest,
-			&msg,
-		)
+		auditEntry.EventGroup = models.EventGroupError
+		auditEntry.EventAction = models.ActionAuthFailed
+
 		log.LogAuditEntry(auditEntry)
 
-		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -54,7 +59,7 @@ func SignUpHandler(c *gin.Context) {
 		log.Warn("Invalid email format: %s", body.Email)
 
 		msg := "Invalid email format"
-		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -64,17 +69,17 @@ func SignUpHandler(c *gin.Context) {
 		log.Error("Failed to generate session ID: %v", err)
 
 		msg := "Internal server error"
-		c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": msg})
 		return
 	}
 
 	// Store session data in Redis (clientID as a field in the session hash)
 	clientID := c.ClientIP()
-	if err := redis.StoreSessionData(sessionID, clientID, "", body.Email, "", 15*time.Minute); err != nil {
+	if err := redis.StoreSessionData(sessionID, clientID, "", body.Email, "", 0, 15*time.Minute); err != nil {
 		log.Error("Failed to store session data in Redis: %v", err)
 
 		msg := "Internal server error"
-		c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -84,8 +89,8 @@ func SignUpHandler(c *gin.Context) {
 		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		Secure:   false,
+		SameSite: http.SameSiteDefaultMode,
 		MaxAge:   int((15 * time.Minute).Seconds()), // this token will live only for 15 mins.
 	}
 	http.SetCookie(c.Writer, cookie)
@@ -107,7 +112,7 @@ func SignUpHandler(c *gin.Context) {
 		)
 		log.LogAuditEntry(auditEntry)
 
-		c.JSON(http.StatusBadGateway, gin.H{"error": msg})
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": msg})
 		return
 	}
 
@@ -115,8 +120,8 @@ func SignUpHandler(c *gin.Context) {
 	respBody, _ := io.ReadAll(resp.Body)
 
 	// Prepare audit entry
-	msg := "Signup attempt"
-	auditEntry := log.NewAuditEntry(
+	msg = "Signup attempt"
+	auditEntry = log.NewAuditEntry(
 		models.EventGroupAuth,
 		models.ActionSignup,
 		&clientID,
@@ -131,15 +136,18 @@ func SignUpHandler(c *gin.Context) {
 		successMsg := "OTP sent successfully"
 		auditEntry.Message = &successMsg
 		log.LogAuditEntry(auditEntry)
-		c.Data(http.StatusOK, "application/json", respBody)
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": successMsg,
+		})
 	} else {
 		log.Warn("OTP service responded with status %d", resp.StatusCode)
 		errMsg := fmt.Sprintf("Failed to initiate signup: %s", string(respBody))
 		auditEntry.Message = &errMsg
 		log.LogAuditEntry(auditEntry)
 		c.JSON(http.StatusBadGateway, gin.H{
-			"error":  "Failed to initiate signup",
-			"detail": string(respBody),
+			"success": false,
+			"message": errMsg,
 		})
 	}
 }

@@ -6,9 +6,12 @@ import (
 	"auth-server/redis"
 	"auth-server/utils"
 	"net/http"
+	"strconv"
 	"strings"
-
+	"time"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+	"errors"
 )
 
 type GetAccessTokenRequest struct {
@@ -28,20 +31,46 @@ func GetAccessToken(c *gin.Context) {
 	var user models.User
 	err := config.UserDB.Where("email = ?", req.Email).First(&user).Error
 
-	if err != nil {
-		// User doesn't exist, create a new one
-		newUser := models.User{
-			Email: req.Email,
-			Role:  models.RoleUser, // Default role
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		
+		logger.Info("User not found, creating a new one")
+
+		// Generate a new API key for the user
+		apiKey, err := utils.GenerateAPIKey()
+		if err != nil {
+			logger.Warn("Failed to generate API key: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to generate API key"})
+			return
 		}
 
-		if err := config.UserDB.Create(&newUser).Error; err != nil {
+
+		user = models.User{
+			Email: req.Email,
+			Role:  models.RoleUser, // Default role
+			Keys: &models.Keys{
+				APIKey: apiKey,
+			},
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		logger.Info("New API key generated for user %s: %s", user.Email, apiKey)
+		logger.LogAuditRecord(models.AuditRecord{
+			UserID:      strconv.FormatInt(int64(user.ID), 10),
+			Action:      models.TokenIssued,
+			Status:      models.StatusSuccess,
+			ClientIP:    c.ClientIP(),
+			UserAgent:   c.Request.UserAgent(),
+			Description: "New API key generated for user",
+			Scopes:      "",
+		})
+
+		if err := config.UserDB.Create(&user).Error; err != nil {
 			logger.Warn("Failed to create user: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 			return
 		}
 
-		user = newUser
 		logger.Info("New user created: %s", user.Email)
 	}
 
@@ -53,7 +82,7 @@ func GetAccessToken(c *gin.Context) {
 		scopes = []string{"read", "write"}
 	}
 
-	token, err := utils.GenerateJWT(user.ID, user.Email, scopes)
+	token, err := utils.GenerateJWT(strconv.FormatInt(user.ID, 10), user.Email, scopes)
 	if err != nil {
 		logger.Warn("Token generation failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
@@ -61,13 +90,13 @@ func GetAccessToken(c *gin.Context) {
 	}
 
 	refreshTokenID := utils.GenerateRefreshTokenID()
-	redis.StoreRefreshToken(refreshTokenID, user.ID, user.Email, scopes)
+	redis.StoreRefreshToken(refreshTokenID, strconv.FormatInt(user.ID,10), user.Email, scopes)
 	// Log audit record
 	action := models.TokenIssued
 	description := "Access token and Refresh token issued."
 
 	logger.LogAuditRecord(models.AuditRecord{
-		UserID:      user.ID,
+		UserID:      strconv.FormatInt(user.ID, 10),
 		Action:      action,
 		Status:      models.StatusSuccess,
 		ClientIP:    c.ClientIP(),
@@ -80,5 +109,6 @@ func GetAccessToken(c *gin.Context) {
 		"access_token":                token,
 		"refresh_token":               refreshTokenID,
 		"refresh_token_duration_days": config.AppConfig.RefreshTokenDuration,
+		"user_id":                     user.ID,
 	})
 }

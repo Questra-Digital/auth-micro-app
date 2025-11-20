@@ -54,7 +54,7 @@ type AuditLog struct {
 
 // TableName overrides the table name used by GORM
 func (AuditLog) TableName() string {
-	return "audit_logs"
+	return "api_gateway_audit_logs"
 }
 
 type RequestContext struct {

@@ -127,10 +127,10 @@ func ExtractTokens(response map[string]interface{}) (string, string, error) {
 }
 
 // ExtractTokensAndDuration extracts access token, refresh token, and refresh token duration
-func ExtractTokensAndDuration(response map[string]interface{}) (string, string, int, error) {
+func ExtractTokensAndDuration(response map[string]interface{}) (string, string, int, int64, error) {
 	accessToken, refreshToken, err := ExtractTokens(response)
 	if err != nil {
-		return "", "", 0, err
+		return "", "", 0, 0, err
 	}
 
 	// Extract refresh token duration (default to 7 days if not present)
@@ -139,5 +139,10 @@ func ExtractTokensAndDuration(response map[string]interface{}) (string, string, 
 		refreshTokenDuration = int(duration)
 	}
 
-	return accessToken, refreshToken, refreshTokenDuration, nil
+	userID, ok := response["user_id"].(float64)
+	if !ok {
+		return "", "", 0, 0, fmt.Errorf("no user id in response")
+	}
+
+	return accessToken, refreshToken, refreshTokenDuration, int64(userID), nil
 }

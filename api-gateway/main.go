@@ -7,6 +7,8 @@ import (
 	"api-gateway/redis"
 	"api-gateway/utils"
 	"context"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"os"
@@ -14,8 +16,6 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 // gracefulShutdown handles OS signals and cleans up resources
@@ -61,6 +61,15 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.RateLimitMiddleware())
 
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	r.POST("/signup", handlers.SignUpHandler)
 	r.POST("/verify-otp", handlers.VerifyOTPHandler)
 
@@ -70,6 +79,10 @@ func main() {
 	r.POST("/resources", handlers.ResourceHandler)
 	r.PUT("/resources/:id", handlers.ResourceHandler)
 	r.DELETE("/resources/:id", handlers.ResourceHandler)
+
+
+	// Verify session endpoint
+	r.POST("/verify-session", handlers.VerifySession)
 
 	srv := &http.Server{
 		Addr:    ":" + strconv.Itoa(config.AppConfig.ApiGatewayPort),
